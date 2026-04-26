@@ -3,9 +3,11 @@ import { nodeReader } from "@remotion/media-parser/node";
 import {
   createReadStream,
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
@@ -236,6 +238,88 @@ export const handleAssetFile = async (
     res.setHeader("Accept-Ranges", "bytes");
 
     createReadStream(resolved).pipe(res);
+  } catch (e) {
+    json(res, 500, { error: (e as Error).message });
+  }
+};
+
+const editJsonPath = (seriesFolder: string, episode: number): string =>
+  path.join(seriesFolder, ".gg-editor", `E${episode}.edit.json`);
+
+const resolveSeriesFolder = (name: string): string | null => {
+  try {
+    const reg = readRegistry();
+    const folder = reg.projects[name];
+    return folder && existsSync(folder) ? folder : null;
+  } catch {
+    return null;
+  }
+};
+
+const readBody = (req: IncomingMessage): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    req.on("error", (err) => reject(err));
+  });
+
+export const handleEditGet = (req: IncomingMessage, res: ServerResponse) => {
+  try {
+    const url = new URL(req.url ?? "", "http://localhost");
+    const name = url.searchParams.get("series");
+    const episode = Number(url.searchParams.get("episode"));
+    if (!name || !episode)
+      return json(res, 400, { error: "series + episode required" });
+
+    const folder = resolveSeriesFolder(name);
+    if (!folder) return json(res, 404, { error: "series not found" });
+
+    const file = editJsonPath(folder, episode);
+    if (!existsSync(file)) return json(res, 404, { error: "no edit yet" });
+
+    const raw = readFileSync(file, "utf-8");
+    const data = JSON.parse(raw);
+    json(res, 200, data);
+  } catch (e) {
+    json(res, 500, { error: (e as Error).message });
+  }
+};
+
+export const handleEditPost = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+) => {
+  try {
+    if ((req.method ?? "GET").toUpperCase() === "OPTIONS") {
+      cors(res);
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+    const url = new URL(req.url ?? "", "http://localhost");
+    const name = url.searchParams.get("series");
+    const episode = Number(url.searchParams.get("episode"));
+    if (!name || !episode)
+      return json(res, 400, { error: "series + episode required" });
+
+    const folder = resolveSeriesFolder(name);
+    if (!folder) return json(res, 404, { error: "series not found" });
+
+    const body = await readBody(req);
+    const parsed = body ? JSON.parse(body) : {};
+
+    const file = editJsonPath(folder, episode);
+    const dir = path.dirname(file);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+    const payload = {
+      version: 1,
+      ...parsed,
+      savedAt: new Date().toISOString(),
+    };
+    writeFileSync(file, JSON.stringify(payload, null, 2), "utf-8");
+    json(res, 200, { ok: true, file });
   } catch (e) {
     json(res, 500, { error: (e as Error).message });
   }

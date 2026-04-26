@@ -60,6 +60,27 @@ const fetchSeriesEpisodes = async (
   }
 };
 
+type EpisodeEdit = {
+  clips?: Clip[];
+  transitionFrames?: number;
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
+};
+
+const fetchEpisodeEdit = async (
+  series: string,
+  episode: number,
+): Promise<EpisodeEdit | null> => {
+  const url = `http://localhost:4000/api/edit?series=${encodeURIComponent(series)}&episode=${episode}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return (await r.json()) as EpisodeEdit;
+  } catch {
+    return null;
+  }
+};
+
 export const RemotionRoot = () => {
   return (
     <>
@@ -84,18 +105,35 @@ export const RemotionRoot = () => {
           fallbackChunkDurationFrames: FALLBACK_CHUNK_FRAMES,
         }}
         calculateMetadata={async ({ props }) => {
-          const { chunks, music, seriesFolder } = await fetchEpisodeAssets(
-            props.series,
-            props.episode,
-          );
-          // if user hasn't customized clips yet, generate defaults from chunks
+          const [{ chunks, music, seriesFolder }, edit] = await Promise.all([
+            fetchEpisodeAssets(props.series, props.episode),
+            fetchEpisodeEdit(props.series, props.episode),
+          ]);
+          // priority: explicit URL props > saved edit.json > defaults from chunks
           const clips =
-            props.clips.length > 0 ? props.clips : generateDefaultClips(chunks);
+            props.clips.length > 0
+              ? props.clips
+              : edit?.clips && edit.clips.length > 0
+                ? edit.clips
+                : generateDefaultClips(chunks);
+          const transitionFrames =
+            edit?.transitionFrames ?? props.transitionFrames;
+          const fadeInFrames = edit?.fadeInFrames ?? props.fadeInFrames;
+          const fadeOutFrames = edit?.fadeOutFrames ?? props.fadeOutFrames;
           return {
-            props: { ...props, chunks, music, seriesFolder, clips },
+            props: {
+              ...props,
+              chunks,
+              music,
+              seriesFolder,
+              clips,
+              transitionFrames,
+              fadeInFrames,
+              fadeOutFrames,
+            },
             durationInFrames: totalEpisodeFrames(
               clips,
-              props.transitionFrames,
+              transitionFrames,
               FPS,
             ),
           };

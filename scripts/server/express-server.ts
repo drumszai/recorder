@@ -15,6 +15,8 @@ import {
 import { createProject } from "./create-project";
 import {
   handleAssetFile,
+  handleEditGet,
+  handleEditPost,
   handleEpisodeAssets,
   handleSeriesEpisodes,
   handleSeriesList,
@@ -69,6 +71,11 @@ export const startServer = async () => {
   app.use("/api/episodes", handleSeriesEpisodes);
   app.use("/api/assets", handleEpisodeAssets);
   app.use("/api/file", handleAssetFile);
+  app.use("/api/edit", (req: IncomingMessage, res: ServerResponse) => {
+    const method = (req.method ?? "GET").toUpperCase();
+    if (method === "POST") return handleEditPost(req, res);
+    return handleEditGet(req, res);
+  });
 
   app.use("/", indexHtmlDev(vite, rootDir));
 
