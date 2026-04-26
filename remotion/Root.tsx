@@ -1,12 +1,63 @@
 import { Composition } from "remotion";
 import { videoConf } from "../config/scenes";
+import { Episode, type EpisodeChunk, type EpisodeMusic } from "./Episode";
 import { GoToRecorder } from "./GoToRecorder";
 import { Main } from "./Main";
 import { calcMetadata } from "./calculate-metadata/calc-metadata";
 
+const FPS = 30;
+const DEFAULT_CHUNK_DURATION_FRAMES = 180; // ~6s @ 30fps — приближение
+
+const fetchEpisodeAssets = async (
+  series: string,
+  episode: number,
+): Promise<{ chunks: EpisodeChunk[]; music: EpisodeMusic }> => {
+  const url = `http://localhost:4000/api/assets?series=${encodeURIComponent(series)}&episode=${episode}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) {
+      return { chunks: [], music: null };
+    }
+    const data = (await r.json()) as {
+      chunks?: EpisodeChunk[];
+      music?: EpisodeMusic;
+    };
+    return { chunks: data.chunks ?? [], music: data.music ?? null };
+  } catch {
+    return { chunks: [], music: null };
+  }
+};
+
 export const RemotionRoot = () => {
   return (
     <>
+      <Composition
+        component={Episode}
+        id="Episode"
+        width={1080}
+        height={1920}
+        fps={FPS}
+        durationInFrames={60}
+        defaultProps={{
+          series: "Divorce in 5 Minutes",
+          episode: 1,
+          chunks: [] as EpisodeChunk[],
+          music: null as EpisodeMusic,
+          chunkDurationFrames: DEFAULT_CHUNK_DURATION_FRAMES,
+        }}
+        calculateMetadata={async ({ props }) => {
+          const { chunks, music } = await fetchEpisodeAssets(
+            props.series,
+            props.episode,
+          );
+          const dur = props.chunkDurationFrames || DEFAULT_CHUNK_DURATION_FRAMES;
+          const total = Math.max(60, chunks.length * dur);
+          return {
+            props: { ...props, chunks, music },
+            durationInFrames: total,
+          };
+        }}
+      />
       <Composition
         component={Main}
         id="welcome"

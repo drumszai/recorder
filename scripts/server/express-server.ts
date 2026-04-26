@@ -13,6 +13,12 @@ import {
   UPLOAD_VIDEO,
 } from "./constants";
 import { createProject } from "./create-project";
+import {
+  handleAssetFile,
+  handleEpisodeAssets,
+  handleSeriesEpisodes,
+  handleSeriesList,
+} from "./episodes";
 import { indexHtmlDev } from "./index-html";
 import { getProjectFolder } from "./projects";
 import {
@@ -58,6 +64,12 @@ export const startServer = async () => {
   app.use(UPLOAD_VIDEO, handleVideoUpload);
   app.use(TRANSCRIBE_VIDEO, handleTranscribeVideo);
   app.use(CANCEL_TRANSCRIBE, handleCancelTranscription);
+
+  app.use("/api/series", handleSeriesList);
+  app.use("/api/episodes", handleSeriesEpisodes);
+  app.use("/api/assets", handleEpisodeAssets);
+  app.use("/api/file", handleAssetFile);
+
   app.use("/", indexHtmlDev(vite, rootDir));
 
   const port = process.env.PORT || SERVER_PORT;
