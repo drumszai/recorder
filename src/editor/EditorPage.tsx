@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   generateDefaultClips,
   type Clip,
+  type SubtitleCue,
   type TransitionType,
 } from "../../remotion/Episode";
 import type { SeriesEpisodePack } from "../../remotion/Series";
@@ -164,6 +165,11 @@ export const EditorPage: React.FC<Props> = ({
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [render, setRender] = useState<RenderState>(null);
+  const [showSubtitles, setShowSubtitles] = useState(false);
+  const [subtitles, setSubtitles] = useState<SubtitleCue[] | null>(null);
+  const [subtitlesStatus, setSubtitlesStatus] = useState<
+    "idle" | "loading" | "missing" | "ok" | "error"
+  >("idle");
 
   const loadEpisode = useCallback(async (s: string, ep: number) => {
     setLoading(true);
@@ -312,6 +318,34 @@ export const EditorPage: React.FC<Props> = ({
   useEffect(() => {
     setDirty(true);
   }, [transitionFrames, fadeInFrames, fadeOutFrames]);
+
+  // load subtitles when toggle on or episode changes
+  useEffect(() => {
+    if (!showSubtitles || !selSeries || selEpisode === null || view !== "episode") {
+      setSubtitles(null);
+      setSubtitlesStatus("idle");
+      return;
+    }
+    setSubtitlesStatus("loading");
+    fetch(
+      `/api/captions?series=${encodeURIComponent(selSeries)}&episode=${selEpisode}`,
+    )
+      .then(async (r) => {
+        if (r.status === 404) {
+          setSubtitles([]);
+          setSubtitlesStatus("missing");
+          return;
+        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = (await r.json()) as { cues?: SubtitleCue[] };
+        setSubtitles(data.cues ?? []);
+        setSubtitlesStatus("ok");
+      })
+      .catch(() => {
+        setSubtitles([]);
+        setSubtitlesStatus("error");
+      });
+  }, [showSubtitles, selSeries, selEpisode, view]);
 
   const startRender = useCallback(async () => {
     if (!selSeries) return;
@@ -499,6 +533,42 @@ export const EditorPage: React.FC<Props> = ({
                 </select>
               </div>
             ) : null}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                cursor: view === "episode" ? "pointer" : "not-allowed",
+                opacity: view === "episode" ? 1 : 0.4,
+              }}
+              title={
+                view === "episode"
+                  ? "Покажет .ru.srt поверх превью (в финальный mp4 НЕ попадёт)"
+                  : "Доступно только в режиме «Серия»"
+              }
+            >
+              <input
+                type="checkbox"
+                checked={showSubtitles}
+                disabled={view !== "episode"}
+                onChange={(e) => setShowSubtitles(e.target.checked)}
+              />
+              Субтитры
+              {showSubtitles && view === "episode" ? (
+                <span style={{ opacity: 0.7 }}>
+                  {subtitlesStatus === "loading"
+                    ? "·загружаю"
+                    : subtitlesStatus === "missing"
+                      ? "·нет .ru.srt"
+                      : subtitlesStatus === "ok"
+                        ? `·${subtitles?.length ?? 0} строк`
+                        : subtitlesStatus === "error"
+                          ? "·ошибка"
+                          : ""}
+                </span>
+              ) : null}
+            </label>
             <Button
               onClick={() => void save(false)}
               disabled={!selSeries || saving || view === "series"}
@@ -619,6 +689,11 @@ export const EditorPage: React.FC<Props> = ({
                 transitionFrames={transitionFrames}
                 fadeInFrames={fadeInFrames}
                 fadeOutFrames={fadeOutFrames}
+                subtitles={
+                  showSubtitles && subtitles && subtitles.length > 0
+                    ? subtitles
+                    : undefined
+                }
               />
               <Timeline
                 clips={clips}

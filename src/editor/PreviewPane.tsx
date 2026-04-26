@@ -6,9 +6,10 @@ import {
   type Clip,
   type EpisodeChunk,
   type EpisodeMusic,
+  type SubtitleCue,
+  type TransitionType,
 } from "../../remotion/Episode";
 import { Series, type SeriesEpisodePack } from "../../remotion/Series";
-import type { TransitionType } from "../../remotion/Episode";
 
 const FPS = 30;
 const COMP_W = 1080;
@@ -42,6 +43,7 @@ type EpisodeProps = {
   transitionFrames: number;
   fadeInFrames: number;
   fadeOutFrames: number;
+  subtitles?: SubtitleCue[];
 };
 
 type SeriesProps = {
@@ -78,6 +80,7 @@ export const PreviewPane: React.FC<Props> = (props) => {
               fadeInFrames: props.fadeInFrames,
               fadeOutFrames: props.fadeOutFrames,
               fallbackChunkDurationFrames: FALLBACK_FRAMES,
+              subtitles: props.subtitles,
             }}
             durationInFrames={dur}
             compositionWidth={COMP_W}

@@ -116,6 +116,8 @@ export type EpisodeMusic = {
   path: string;
 } | null;
 
+export type SubtitleCue = { start: number; end: number; text: string };
+
 // chunks/music/seriesFolder are derived at calculateMetadata time and threaded
 // through props so the component can resolve absolute paths without a second fetch.
 export type EpisodeProps = z.infer<typeof episodeSchema> & {
@@ -123,6 +125,7 @@ export type EpisodeProps = z.infer<typeof episodeSchema> & {
   music: EpisodeMusic;
   seriesFolder: string;
   fallbackChunkDurationFrames: number;
+  subtitles?: SubtitleCue[]; // shown only when supplied (not in render)
 };
 
 const fileUrl = (absPath: string) =>
@@ -190,6 +193,42 @@ export const totalEpisodeFrames = (
   return Math.max(60, clipFrames - overlap);
 };
 
+const SubtitleOverlay: React.FC<{ cues: SubtitleCue[] }> = ({ cues }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = frame / fps;
+  const active = cues.find((c) => t >= c.start && t <= c.end);
+  if (!active) return null;
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: "flex-end",
+        alignItems: "center",
+        paddingBottom: 100,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          background: "rgba(0,0,0,0.7)",
+          color: "#fff",
+          padding: "10px 18px",
+          borderRadius: 8,
+          fontSize: 36,
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontWeight: 500,
+          maxWidth: "85%",
+          textAlign: "center",
+          lineHeight: 1.3,
+          textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+        }}
+      >
+        {active.text}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 const FadeOverlay: React.FC<{
   fadeInFrames: number;
   fadeOutFrames: number;
@@ -230,6 +269,7 @@ export const Episode: React.FC<EpisodeProps> = ({
   transitionFrames,
   fadeInFrames,
   fadeOutFrames,
+  subtitles,
 }) => {
   const { fps, width, height } = useVideoConfig();
 
@@ -312,6 +352,9 @@ export const Episode: React.FC<EpisodeProps> = ({
         })}
       </TransitionSeries>
       {music ? <Audio src={fileUrl(music.path)} volume={0.3} loop /> : null}
+      {subtitles && subtitles.length > 0 ? (
+        <SubtitleOverlay cues={subtitles} />
+      ) : null}
       <FadeOverlay
         fadeInFrames={fadeInFrames}
         fadeOutFrames={fadeOutFrames}

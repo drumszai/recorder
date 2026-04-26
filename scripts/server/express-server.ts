@@ -21,6 +21,10 @@ import {
   handleSeriesEpisodes,
   handleSeriesList,
 } from "./episodes";
+import {
+  handleCaptionsGenerate,
+  handleCaptionsGet,
+} from "./captions";
 import { handleRenderStart, handleRenderStatus } from "./render";
 import { indexHtmlDev } from "./index-html";
 import { getProjectFolder } from "./projects";
@@ -79,6 +83,8 @@ export const startServer = async () => {
   });
   app.use("/api/render/status", handleRenderStatus);
   app.use("/api/render", handleRenderStart);
+  app.use("/api/captions/generate", handleCaptionsGenerate);
+  app.use("/api/captions", handleCaptionsGet);
 
   app.use("/", indexHtmlDev(vite, rootDir));
 
