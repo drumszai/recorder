@@ -1,121 +1,45 @@
-import React, { useCallback, useMemo, useState } from "react";
-import {
-  ALTERNATIVE1_PREFIX,
-  ALTERNATIVE2_PREFIX,
-  DISPLAY_PREFIX,
-  WEBCAM_PREFIX,
-} from "../config/cameras";
+import React from "react";
 import "./App.css";
-import type { RecordingStatus } from "./RecordButton";
-import { RecordingView } from "./RecordingView";
-import { TopBar } from "./TopBar";
-import { WaitingForDevices } from "./WaitingForDevices";
-import { EnsureBrowserSupport } from "./components/EnsureBrowserSupport";
 import { Button } from "./components/ui/button";
-import { MediaSourcesProvider } from "./state/media-sources";
 
 const outer: React.CSSProperties = {
   height: "100%",
   display: "flex",
   flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  textAlign: "center",
+  padding: 40,
+  gap: 24,
 };
 
-const gridContainer: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  alignItems: "center",
-  justifyItems: "center",
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  gap: 10,
-  margin: 10,
-  marginTop: 2,
+const title: React.CSSProperties = {
+  fontSize: 36,
+  fontWeight: 700,
+};
+
+const subtitle: React.CSSProperties = {
+  fontSize: 16,
+  opacity: 0.7,
+  maxWidth: 560,
+  lineHeight: 1.5,
 };
 
 const App = () => {
-  const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>({
-    type: "idle",
-  });
-
-  const [showAllViews, setShowAllViews] = useState<boolean>(
-    localStorage.getItem("showAlternativeViews") === "true",
-  );
-
-  const dynamicGridContainer = useMemo(() => {
-    if (showAllViews) {
-      return { ...gridContainer, gridTemplateRows: "repeat(2, 1fr)" };
-    }
-
-    return { ...gridContainer, maxHeight: "50%" };
-  }, [showAllViews]);
-
-  const handleShowMore = useCallback(() => {
-    setShowAllViews(true);
-    localStorage.setItem("showAlternativeViews", "true");
-  }, []);
-
-  const handleShowLess = useCallback(() => {
-    setShowAllViews(false);
-    localStorage.setItem("showAlternativeViews", "false");
-  }, []);
-
   return (
-    <EnsureBrowserSupport>
-      <WaitingForDevices>
-        <MediaSourcesProvider>
-          <div style={outer}>
-            <TopBar
-              setRecordingStatus={setRecordingStatus}
-              recordingStatus={recordingStatus}
-              showAllViews={showAllViews}
-            />
-            <div style={dynamicGridContainer}>
-              <RecordingView
-                showAllViews={showAllViews}
-                recordingStatus={recordingStatus}
-                prefix={WEBCAM_PREFIX}
-              />
-              <RecordingView
-                showAllViews={showAllViews}
-                recordingStatus={recordingStatus}
-                prefix={DISPLAY_PREFIX}
-              />
-              <RecordingView
-                showAllViews={showAllViews}
-                recordingStatus={recordingStatus}
-                prefix={ALTERNATIVE1_PREFIX}
-              />
-              <RecordingView
-                showAllViews={showAllViews}
-                recordingStatus={recordingStatus}
-                prefix={ALTERNATIVE2_PREFIX}
-              />
-            </div>
-
-            <div style={{ marginBottom: 10, textAlign: "center" }}>
-              {showAllViews ? (
-                <Button
-                  variant={"ghost"}
-                  onClick={handleShowLess}
-                  style={{ margin: "0px 10px", width: 100 }}
-                >
-                  Скрыть
-                </Button>
-              ) : (
-                <Button
-                  variant={"ghost"}
-                  onClick={handleShowMore}
-                  style={{ margin: "0px 10px" }}
-                >
-                  Показать ещё
-                </Button>
-              )}
-            </div>
-          </div>
-        </MediaSourcesProvider>
-      </WaitingForDevices>
-    </EnsureBrowserSupport>
+    <div style={outer}>
+      <div style={title}>Game Gears Editor</div>
+      <div style={subtitle}>
+        Монтаж short drama из готовых исходников Reteller. Запись с камеры
+        отключена — этот инструмент собирает финал из mp4-чанков и музыки,
+        которые скачивает пульт.
+      </div>
+      <Button asChild variant="outline">
+        <a href="http://localhost:3000" target="_blank" rel="noreferrer">
+          Открыть монтажку
+        </a>
+      </Button>
+    </div>
   );
 };
 
