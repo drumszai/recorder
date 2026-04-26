@@ -7,7 +7,9 @@ import { wipe } from "@remotion/transitions/wipe";
 import {
   AbsoluteFill,
   Audio,
+  interpolate,
   OffthreadVideo,
+  useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { z } from "zod";
@@ -27,20 +29,23 @@ export const transitionType = z.enum([
 
 export type TransitionType = z.infer<typeof transitionType>;
 
-export const chunkOverrideSchema = z.object({
-  filename: z.string(),
-  trimStartFrames: z.number().int().min(0).max(900).default(0),
-  trimEndFrames: z.number().int().min(0).max(900).default(0),
+export const clipSchema = z.object({
+  id: z.string(),
+  source: z.string(), // mp4 filename inside the series sources folder
+  inSec: z.number().min(0),
+  outSec: z.number().min(0),
+  transitionAfter: transitionType,
 });
 
-export type ChunkOverride = z.infer<typeof chunkOverrideSchema>;
+export type Clip = z.infer<typeof clipSchema>;
 
 export const episodeSchema = z.object({
   series: z.string(),
   episode: z.number().int().min(1),
-  transitions: z.array(transitionType),
+  clips: z.array(clipSchema),
   transitionFrames: z.number().int().min(0).max(120),
-  chunkOverrides: z.array(chunkOverrideSchema),
+  fadeInFrames: z.number().int().min(0).max(180),
+  fadeOutFrames: z.number().int().min(0).max(180),
 });
 
 export type EpisodeChunk = {
@@ -56,47 +61,18 @@ export type EpisodeMusic = {
   path: string;
 } | null;
 
+// chunks/music/seriesFolder are derived at calculateMetadata time and threaded
+// through props so the component can resolve absolute paths without a second fetch.
 export type EpisodeProps = z.infer<typeof episodeSchema> & {
   chunks: EpisodeChunk[];
   music: EpisodeMusic;
+  seriesFolder: string;
   fallbackChunkDurationFrames: number;
-};
-
-export const trimsFor = (
-  filename: string,
-  overrides: ChunkOverride[],
-): { trimStartFrames: number; trimEndFrames: number } => {
-  const found = overrides.find((o) => o.filename === filename);
-  return {
-    trimStartFrames: found?.trimStartFrames ?? 0,
-    trimEndFrames: found?.trimEndFrames ?? 0,
-  };
-};
-
-export const visibleDurationFrames = (
-  chunk: EpisodeChunk,
-  overrides: ChunkOverride[],
-  fps: number,
-  fallback: number,
-): number => {
-  const raw =
-    chunk.durationSec !== null
-      ? Math.round(chunk.durationSec * fps)
-      : fallback;
-  const { trimStartFrames, trimEndFrames } = trimsFor(
-    chunk.filename,
-    overrides,
-  );
-  const result = raw - trimStartFrames - trimEndFrames;
-  return Math.max(1, result);
 };
 
 const fileUrl = (absPath: string) =>
   `http://localhost:4000/api/file?path=${encodeURIComponent(absPath)}`;
 
-// presentation type intentionally erased — Remotion's TransitionPresentation
-// is generic over the inner component's props (FadeProps / WipeProps / ...).
-// Mixing presets in a single map means we lose the union and have to widen.
 type AnyPresentation = ReturnType<typeof fade>;
 
 const presentationFor = (
@@ -128,17 +104,81 @@ const presentationFor = (
   }
 };
 
+const findChunkPath = (chunks: EpisodeChunk[], source: string): string | null => {
+  const found = chunks.find((c) => c.filename === source);
+  return found ? found.path : null;
+};
+
+export const generateDefaultClips = (chunks: EpisodeChunk[]): Clip[] =>
+  chunks.map((c, i) => ({
+    id: `${c.filename}#0`,
+    source: c.filename,
+    inSec: 0,
+    outSec: c.durationSec ?? 6,
+    transitionAfter: i < chunks.length - 1 ? "fade" : "cut",
+  }));
+
+export const totalEpisodeFrames = (
+  clips: Clip[],
+  transitionFrames: number,
+  fps: number,
+): number => {
+  if (clips.length === 0) return 60;
+  const clipFrames = clips.reduce((sum, c) => {
+    const visible = Math.max(1, Math.round((c.outSec - c.inSec) * fps));
+    return sum + visible;
+  }, 0);
+  let overlap = 0;
+  for (let i = 0; i < clips.length - 1; i++) {
+    if (clips[i]!.transitionAfter !== "cut") overlap += transitionFrames;
+  }
+  return Math.max(60, clipFrames - overlap);
+};
+
+const FadeOverlay: React.FC<{
+  fadeInFrames: number;
+  fadeOutFrames: number;
+  total: number;
+}> = ({ fadeInFrames, fadeOutFrames, total }) => {
+  const frame = useCurrentFrame();
+  const inOpacity =
+    fadeInFrames > 0
+      ? interpolate(frame, [0, fadeInFrames], [1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 0;
+  const outOpacity =
+    fadeOutFrames > 0
+      ? interpolate(frame, [total - fadeOutFrames, total], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 0;
+  const opacity = Math.max(inOpacity, outOpacity);
+  if (opacity <= 0) return null;
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: "black",
+        opacity,
+        pointerEvents: "none",
+      }}
+    />
+  );
+};
+
 export const Episode: React.FC<EpisodeProps> = ({
+  clips,
   chunks,
   music,
-  transitions,
   transitionFrames,
-  chunkOverrides,
-  fallbackChunkDurationFrames,
+  fadeInFrames,
+  fadeOutFrames,
 }) => {
   const { fps, width, height } = useVideoConfig();
 
-  if (chunks.length === 0) {
+  if (clips.length === 0 || chunks.length === 0) {
     return (
       <AbsoluteFill
         style={{
@@ -152,49 +192,64 @@ export const Episode: React.FC<EpisodeProps> = ({
           padding: 40,
         }}
       >
-        Нет чанков. Проверь, что в папке «Исходники» есть файлы вида
+        Нет клипов. Проверь, что в папке «Исходники» есть файлы вида
         E&lt;N&gt; CH&lt;M&gt; V&lt;V&gt;.mp4.
       </AbsoluteFill>
     );
   }
 
+  const total = totalEpisodeFrames(clips, transitionFrames, fps);
+
   return (
     <AbsoluteFill style={{ background: "black" }}>
       <TransitionSeries>
-        {chunks.flatMap((chunk, i) => {
-          const visible = visibleDurationFrames(
-            chunk,
-            chunkOverrides,
-            fps,
-            fallbackChunkDurationFrames,
+        {clips.flatMap((clip, i) => {
+          const visible = Math.max(
+            1,
+            Math.round((clip.outSec - clip.inSec) * fps),
           );
-          const { trimStartFrames } = trimsFor(chunk.filename, chunkOverrides);
+          const startFromFrames = Math.max(0, Math.round(clip.inSec * fps));
+          const path = findChunkPath(chunks, clip.source);
           const seq = (
             <TransitionSeries.Sequence
-              key={`seq-${chunk.filename}`}
+              key={`seq-${clip.id}`}
               durationInFrames={visible}
-              name={`CH${chunk.chunk} v${chunk.version}`}
+              name={clip.source}
             >
-              <OffthreadVideo
-                src={fileUrl(chunk.path)}
-                startFrom={trimStartFrames}
-              />
+              {path ? (
+                <OffthreadVideo src={fileUrl(path)} startFrom={startFromFrames} />
+              ) : (
+                <AbsoluteFill
+                  style={{
+                    background: "#400",
+                    color: "#fff",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    fontSize: 24,
+                    padding: 40,
+                    textAlign: "center",
+                  }}
+                >
+                  Не найден файл «{clip.source}»
+                </AbsoluteFill>
+              )}
             </TransitionSeries.Sequence>
           );
 
-          const isLast = i === chunks.length - 1;
+          const isLast = i === clips.length - 1;
           if (isLast) return [seq];
 
-          const t = transitions[i] ?? "cut";
-          const presentation = presentationFor(t, width, height);
-          if (presentation === null || transitionFrames <= 0) {
-            return [seq];
-          }
+          const presentation = presentationFor(
+            clip.transitionAfter,
+            width,
+            height,
+          );
+          if (presentation === null || transitionFrames <= 0) return [seq];
 
           return [
             seq,
             <TransitionSeries.Transition
-              key={`trans-${i}`}
+              key={`trans-${clip.id}`}
               presentation={presentation}
               timing={linearTiming({ durationInFrames: transitionFrames })}
             />,
@@ -202,6 +257,11 @@ export const Episode: React.FC<EpisodeProps> = ({
         })}
       </TransitionSeries>
       {music ? <Audio src={fileUrl(music.path)} volume={0.3} loop /> : null}
+      <FadeOverlay
+        fadeInFrames={fadeInFrames}
+        fadeOutFrames={fadeOutFrames}
+        total={total}
+      />
     </AbsoluteFill>
   );
 };

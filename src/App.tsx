@@ -87,7 +87,6 @@ const App = () => {
 
   const onOpenStudio = useCallback(() => {
     if (!selSeries || selEp === null) return;
-    // Remotion Studio principal URL params: defaultProps as JSON.
     const inputProps = encodeURIComponent(
       JSON.stringify({ series: selSeries, episode: selEp }),
     );
@@ -97,6 +96,18 @@ const App = () => {
       "noreferrer",
     );
   }, [selSeries, selEp]);
+
+  const onOpenWholeSeries = useCallback(() => {
+    if (!selSeries) return;
+    const inputProps = encodeURIComponent(
+      JSON.stringify({ series: selSeries }),
+    );
+    window.open(
+      `http://localhost:3000/Series?defaultProps=${inputProps}`,
+      "_blank",
+      "noreferrer",
+    );
+  }, [selSeries]);
 
   return (
     <div style={outer}>
@@ -153,6 +164,16 @@ const App = () => {
       {selSeries && selEp !== null ? (
         <Button onClick={onOpenStudio} style={{ marginTop: 8 }}>
           Открыть «{selSeries}» / E{selEp} в монтажке
+        </Button>
+      ) : null}
+
+      {selSeries ? (
+        <Button
+          variant="outline"
+          onClick={onOpenWholeSeries}
+          style={{ marginTop: 4 }}
+        >
+          Открыть весь сериал «{selSeries}» одним тайм-лайном
         </Button>
       ) : null}
     </div>
