@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { Button } from "./components/ui/button";
+import { EditorPage } from "./editor/EditorPage";
+
+type Mode =
+  | { kind: "home" }
+  | { kind: "editor"; series: string; episode: number };
 
 type Series = { name: string; folder: string };
 
@@ -140,6 +145,7 @@ const Howto: React.FC = () => (
 );
 
 const App = () => {
+  const [mode, setMode] = useState<Mode>({ kind: "home" });
   const [series, setSeries] = useState<Series[] | null>(null);
   const [selSeries, setSelSeries] = useState<string | null>(null);
   const [episodes, setEpisodes] = useState<number[] | null>(null);
@@ -147,6 +153,16 @@ const App = () => {
   const [assets, setAssets] = useState<AssetsResponse | null>(null);
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (mode.kind === "editor") {
+    return (
+      <EditorPage
+        initialSeries={mode.series}
+        initialEpisode={mode.episode}
+        onBackToHome={() => setMode({ kind: "home" })}
+      />
+    );
+  }
 
   useEffect(() => {
     fetch("/api/series")
@@ -196,6 +212,11 @@ const App = () => {
     },
     [selSeries],
   );
+
+  const onOpenEditor = useCallback(() => {
+    if (!selSeries || selEp === null) return;
+    setMode({ kind: "editor", series: selSeries, episode: selEp });
+  }, [selSeries, selEp]);
 
   const onOpenStudio = useCallback(() => {
     if (!selSeries || selEp === null) return;
@@ -363,14 +384,20 @@ const App = () => {
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
         {selSeries && selEp !== null ? (
-          <Button onClick={onOpenStudio}>
-            Открыть «{selSeries}» / E{selEp} в монтажке
+          <Button onClick={onOpenEditor}>
+            Открыть «{selSeries}» / E{selEp} в редакторе
+          </Button>
+        ) : null}
+
+        {selSeries && selEp !== null ? (
+          <Button variant="outline" onClick={onOpenStudio}>
+            Открыть в Studio (для рендера)
           </Button>
         ) : null}
 
         {selSeries ? (
           <Button variant="outline" onClick={onOpenWholeSeries}>
-            Открыть весь сериал одним тайм-лайном
+            Открыть весь сериал в Studio
           </Button>
         ) : null}
       </div>
