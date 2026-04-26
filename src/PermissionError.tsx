@@ -14,8 +14,8 @@ const outer: React.CSSProperties = {
 export const PermissionError: React.FC = () => {
   return (
     <div style={outer}>
-      This device does not seem to be able to capture both video and audio.
-      <br /> Is there a camera and microphone connected?
+      Это устройство, похоже, не может записывать одновременно видео и аудио.
+      <br /> Камера и микрофон подключены?
     </div>
   );
 };

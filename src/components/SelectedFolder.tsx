@@ -38,7 +38,7 @@ export const SelectedFolder: React.FC<{
         opacity: 0.5,
       }}
     >
-      None selected
+      Ничего не выбрано
     </span>
   );
 
@@ -51,7 +51,7 @@ export const SelectedFolder: React.FC<{
         gap: 10,
       }}
     >
-      <div style={{ whiteSpace: "nowrap" }}>Save to:</div>
+      <div style={{ whiteSpace: "nowrap" }}>Сохранить в:</div>
       <Select
         value={selectedProject ?? undefined}
         onValueChange={onValueChange}

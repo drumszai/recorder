@@ -79,13 +79,13 @@ export const StreamPicker: React.FC<{
                 : 1,
           }}
         >
-          <div style={title}>Select video</div>
+          <div style={title}>Выбери видео</div>
           {canSelectScreen ? (
             <DeviceItem
               handleClick={() => {
                 onPickScreenWithoutAudio();
               }}
-              deviceLabel={"Screen capture"}
+              deviceLabel={"Захват экрана"}
               type="screen"
               selected={selectedVideoDevice === "display-without-audio"}
             />
@@ -95,7 +95,7 @@ export const StreamPicker: React.FC<{
               handleClick={() => {
                 onPickScreenWithAudio();
               }}
-              deviceLabel={"Screen capture with audio"}
+              deviceLabel={"Захват экрана со звуком"}
               type="screen"
               selected={selectedVideoDevice === "display-with-audio"}
             />
@@ -115,7 +115,7 @@ export const StreamPicker: React.FC<{
           })}
           {selectedVideoDevice && canClear ? (
             <a style={clearStyle} onClick={clear}>
-              Clear
+              Очистить
             </a>
           ) : null}
         </div>
@@ -126,7 +126,7 @@ export const StreamPicker: React.FC<{
               opacity: !selectedVideoDevice && selectedAudioDevice ? 0.5 : 1,
             }}
           >
-            <div style={title}>Select audio</div>
+            <div style={title}>Выбери аудио</div>
             {audioInputs.map((d) => {
               return (
                 <DeviceItem

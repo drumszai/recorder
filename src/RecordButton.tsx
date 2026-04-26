@@ -201,10 +201,10 @@ export const RecordButton: React.FC<{
           variant="outline"
           type="button"
           style={{ display: "flex", alignItems: "center", gap: 10 }}
-          title="Press R to stop recording"
+          title="Нажми R, чтобы остановить запись"
           onClick={onStop}
         >
-          Stop recording
+          Остановить запись
         </Button>
       </>
     );
@@ -214,7 +214,7 @@ export const RecordButton: React.FC<{
     <div
       title={
         disabled
-          ? "A webcam and an audio source have to be selected to start the recording"
+          ? "Чтобы начать запись, выбери камеру и микрофон"
           : undefined
       }
     >
@@ -222,7 +222,7 @@ export const RecordButton: React.FC<{
         variant="outline"
         type="button"
         disabled={disabled}
-        title="Press R to start recording"
+        title="Нажми R, чтобы начать запись"
         className="flex flex-row items-center pl-3 pr-0 py-0"
         onClick={
           recordingStatus.type === "recording-finished"
@@ -234,10 +234,10 @@ export const RecordButton: React.FC<{
         <div className="w-2"></div>
         <div>
           {disabled
-            ? "Select audio+video to record"
+            ? "Выбери аудио и видео для записи"
             : recordingStatus.type === "recording-finished"
-              ? "Discard and retake"
-              : "Start recording"}
+              ? "Сбросить и переснять"
+              : "Начать запись"}
         </div>
         <div className="w-3"></div>
         {videoDeviceCount > 0 && !disabled && (

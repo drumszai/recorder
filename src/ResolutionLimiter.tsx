@@ -130,18 +130,18 @@ export const ResolutionLimiter: React.FC<{
 
   const fullResolutionLabel = useMemo(() => {
     if (maxResolution === null) {
-      return "Full resolution";
+      return "Полное разрешение";
     }
     const { width, height } = maxResolution;
     if (width && !height) {
-      return `Full resolution (${width}p)`;
+      return `Полное разрешение (${width}p)`;
     }
 
-    return "Full resolution";
+    return "Полное разрешение";
   }, [maxResolution]);
 
   const labelForFps = useCallback((fps: number | null) => {
-    return fps === null ? "Default" : `At least ${fps} FPS`;
+    return fps === null ? "По умолчанию" : `Минимум ${fps} FPS`;
   }, []);
 
   return (
@@ -149,10 +149,9 @@ export const ResolutionLimiter: React.FC<{
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
-            <DialogTitle>Limit resolution</DialogTitle>
+            <DialogTitle>Ограничить разрешение</DialogTitle>
             <DialogDescription>
-              Constrain the resolution of {deviceName} to a lower value if you
-              experience dropped frames.
+              Уменьши разрешение {deviceName}, если видишь потерю кадров.
             </DialogDescription>
           </DialogHeader>
           <Select onValueChange={onResolutionChange}>
@@ -173,24 +172,23 @@ export const ResolutionLimiter: React.FC<{
               </SelectItem>
               {availableLowerResolutions.map(([key]) => (
                 <SelectItem key={key} value={key}>
-                  <span style={{ whiteSpace: "nowrap" }}>Limit to {key}</span>
+                  <span style={{ whiteSpace: "nowrap" }}>Ограничить до {key}</span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <br />
           <DialogHeader>
-            <DialogTitle>Minimum frame rate</DialogTitle>
+            <DialogTitle>Минимальная частота кадров</DialogTitle>
             {maxResolution.frameRate === null ? (
               <DialogDescription>
-                {deviceName} might be able to record in higher FPS, but the
-                resolution might drop.
+                {deviceName} может писать с большей FPS, но разрешение может упасть.
               </DialogDescription>
             ) : (
               <DialogDescription>
-                {deviceName} can record in up to{" "}
-                {Math.floor(maxResolution.frameRate * 100) / 100} FPS, but this
-                might drop the resolution.
+                {deviceName} умеет писать до{" "}
+                {Math.floor(maxResolution.frameRate * 100) / 100} FPS, но при
+                этом разрешение может упасть.
               </DialogDescription>
             )}
           </DialogHeader>
@@ -207,7 +205,7 @@ export const ResolutionLimiter: React.FC<{
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Default
+                  По умолчанию
                 </span>
               </SelectItem>
               {availableHigherFps.map((key) => (
@@ -221,7 +219,7 @@ export const ResolutionLimiter: React.FC<{
           </Select>
           <DialogFooter>
             <Button type="submit" onClick={handleSubmit}>
-              Done
+              Готово
             </Button>
           </DialogFooter>
         </DialogContent>

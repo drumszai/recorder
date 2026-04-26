@@ -147,9 +147,9 @@ export const Stream: React.FC<{
       .catch((e) => {
         const errMessage =
           e.name === "NotReadableError"
-            ? "The selected device is not readable. This could be due to another app using this camera."
+            ? "Не удаётся прочитать выбранное устройство. Возможно, его уже использует другое приложение."
             : e.name === "OverconstrainedError"
-              ? `Could not find a resolution satisfying these constraints: ${JSON.stringify(
+              ? `Не нашёл разрешение, подходящее под условия: ${JSON.stringify(
                   getCameraStreamConstraints(
                     selectedVideoSource,
                     preferPortrait,
@@ -229,7 +229,7 @@ export const Stream: React.FC<{
         >
           {mediaStream.streamState.error}
           <a className="underline cursor-pointer" onClick={onReset}>
-            Try again
+            Попробовать снова
           </a>
         </AbsoluteFill>
       ) : null}

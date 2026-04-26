@@ -80,7 +80,7 @@ export const CurrentVideo: React.FC<{
                 <>
                   <div style={{ width: 4 }}></div>
                   <button onClick={onOpen} style={buttonStyle}>
-                    Settings
+                    Настройки
                   </button>
                 </>
               ) : null}

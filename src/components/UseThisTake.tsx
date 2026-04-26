@@ -53,8 +53,8 @@ export const UseThisTake: React.FC<{
             mimeType: blob.mimeType,
             onProgress: (progress, abortFn) => {
               setStatus({
-                title: `Converting ${blob.prefix}${blob.endDate}.${extension}`,
-                description: `${Math.round(progress * 100)}% progress`,
+                title: `Конвертирую ${blob.prefix}${blob.endDate}.${extension}`,
+                description: `${Math.round(progress * 100)}% выполнено`,
                 abort: abortFn,
               });
             },
@@ -62,8 +62,8 @@ export const UseThisTake: React.FC<{
         })
         .then((convertedBlob) => {
           setStatus({
-            title: `Copying to public folder ${blob.prefix}${blob.endDate}.${extension}`,
-            description: "Copying in progress",
+            title: `Копирую в public/ ${blob.prefix}${blob.endDate}.${extension}`,
+            description: "Копирую…",
             abort: null,
           });
           return uploadFileToServer({
@@ -85,7 +85,7 @@ export const UseThisTake: React.FC<{
             return;
           }
           alert(
-            "Failed to convert video. Downloaded original video for backup.",
+            "Не удалось конвертировать видео. Скачаны оригиналы как бэкап.",
           );
           console.log(err);
           return blob.data();
@@ -111,8 +111,8 @@ export const UseThisTake: React.FC<{
     currentProcessing = currentProcessing
       .then(() => {
         setStatus({
-          title: `Transcribing ${WEBCAM_PREFIX}${recordingStatus.endDate}.${recordingStatus.blobs.find((b) => b.prefix === WEBCAM_PREFIX)?.mimeType.includes("webm") ? "webm" : "mp4"}`,
-          description: "See Terminal for progress",
+          title: `Распознаю речь: ${WEBCAM_PREFIX}${recordingStatus.endDate}.${recordingStatus.blobs.find((b) => b.prefix === WEBCAM_PREFIX)?.mimeType.includes("webm") ? "webm" : "mp4"}`,
+          description: "Прогресс смотри в Терминале",
           abort: () => cancelTranscribeOnServer(),
         });
         return transcribeVideoOnServer({
@@ -204,7 +204,7 @@ export const UseThisTake: React.FC<{
             className={"rounded-r-none"}
             onClick={keepVideoOnServer}
           >
-            {`Copy to public/${selectedFolder}`}
+            {`Скопировать в public/${selectedFolder}`}
           </Button>
         ) : (
           <Button
@@ -212,7 +212,7 @@ export const UseThisTake: React.FC<{
             className={"rounded-r-none"}
             onClick={keepVideoOnClient}
           >
-            {`Download files`}
+            {`Скачать файлы`}
           </Button>
         )}
         <DropdownMenu>
@@ -233,11 +233,11 @@ export const UseThisTake: React.FC<{
           <DropdownMenuContent>
             {window.remotionServerEnabled ? (
               <DropdownMenuItem onClick={keepVideoOnClient}>
-                Download as file
+                Скачать файлом
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem onClick={keepVideosWithoutConverting}>
-              Download without conversion
+              Скачать без конвертации
             </DropdownMenuItem>
             {recordingStatus.type === "recording-finished" &&
               recordingStatus.blobs.map((blob) => (
@@ -247,7 +247,7 @@ export const UseThisTake: React.FC<{
                     previewWebcam(blob.prefix as Prefix);
                   }}
                 >
-                  Preview {blob.prefix}
+                  Предпросмотр {blob.prefix}
                 </DropdownMenuItem>
               ))}
           </DropdownMenuContent>

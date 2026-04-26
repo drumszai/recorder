@@ -44,7 +44,7 @@ export const NewFolderDialog: React.FC<{
     }
 
     if (!match || match.length === 0) {
-      return "Project names can't contain spaces or special symbols.";
+      return "Имя проекта не может содержать пробелы или спецсимволы.";
     }
 
     return null;
@@ -90,21 +90,21 @@ export const NewFolderDialog: React.FC<{
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>New Folder</DialogTitle>
+          <DialogTitle>Новая папка</DialogTitle>
           <DialogDescription>
-            Create a new subfolder in the <code>public/</code> directory. This
-            should map to the ID of your composition in the Remotion Studio.
+            Создай новую подпапку внутри <code>public/</code>. Имя должно совпадать
+            с ID композиции в Remotion Studio.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
-              Folder Name
+              Имя папки
             </Label>
 
             <Input
               id="remotion_video_name"
-              placeholder="my-video"
+              placeholder="моё-видео"
               value={newProject}
               className="col-span-3"
               onChange={handleChange}
@@ -116,7 +116,7 @@ export const NewFolderDialog: React.FC<{
         </div>
         <DialogFooter>
           <Button type="submit" disabled={disabled} onClick={handleSubmit}>
-            Create subfolder
+            Создать подпапку
           </Button>
         </DialogFooter>
       </DialogContent>

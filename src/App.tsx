@@ -100,7 +100,7 @@ const App = () => {
                   onClick={handleShowLess}
                   style={{ margin: "0px 10px", width: 100 }}
                 >
-                  Show Less
+                  Скрыть
                 </Button>
               ) : (
                 <Button
@@ -108,7 +108,7 @@ const App = () => {
                   onClick={handleShowMore}
                   style={{ margin: "0px 10px" }}
                 >
-                  Show more views
+                  Показать ещё
                 </Button>
               )}
             </div>

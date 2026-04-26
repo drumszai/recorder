@@ -197,9 +197,9 @@ const Permission: React.FC<{
   }, [run]);
 
   const accessInformation = useMemo(() => {
-    if (deviceState === "prompt") return "Access requested";
-    if (deviceState === "denied") return "Access denied";
-    if (deviceState === "granted") return "Access granted";
+    if (deviceState === "prompt") return "Запрашиваю доступ";
+    if (deviceState === "denied") return "Доступ запрещён";
+    if (deviceState === "granted") return "Доступ разрешён";
   }, [deviceState]);
 
   if (isInitialState) return null;
@@ -289,23 +289,22 @@ export const DevicePermission: React.FC<{ children: ReactNode }> = ({
           <div style={textContainer}>
             <div style={explanationContainer}>
               <div style={title}>
-                This app requires access to your microphone and camera.
+                Приложению нужен доступ к микрофону и камере.
               </div>
               <div style={explanationWrapper}>
-                1. Click on the padlock/info icon next to the web address in
-                your browser&apos;s address bar.
+                1. Нажми на иконку замка/информации рядом с адресом в
+                адресной строке браузера.
               </div>
               <div style={explanationWrapper}>
-                2. In the dropdown menu that appears, locate the
-                &apos;Permissions&apos; or &apos;Site settings&apos; option.
+                2. В выпадающем меню найди пункт «Разрешения» или
+                «Настройки сайта».
               </div>
               <div style={explanationWrapper}>
-                3. Look for &apos;Camera&apos; and &apos;Microphone&apos;
-                settings and ensure they are set to &apos;Allow&apos; or
-                &apos;Ask&apos;
+                3. Найди настройки «Камера» и «Микрофон» и убедись, что они
+                стоят на «Разрешить» или «Спрашивать».
               </div>
               <div style={explanationWrapper}>
-                4. Refresh the page if necessary to apply the changes.
+                4. Обнови страницу, чтобы применить изменения.
               </div>
             </div>
           </div>

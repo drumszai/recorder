@@ -30,7 +30,7 @@ export const ProcessingStatus: React.FC<{
             className="underline cursor-pointer"
             onClick={() => status.abort?.()}
           >
-            Abort and discard
+            Прервать и сбросить
           </a>
         ) : null}{" "}
       </div>

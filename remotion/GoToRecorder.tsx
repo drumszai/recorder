@@ -22,13 +22,13 @@ export const GoToRecorder: React.FC = () => {
   return (
     <WaitForFonts>
       <AbsoluteFill style={container}>
-        The recording interface is running on http://localhost:{SERVER_PORT}.
+        Интерфейс записи работает на http://localhost:{SERVER_PORT}.
         <a
           target="_blank"
           style={link}
           href={`http://localhost:${SERVER_PORT}`}
         >
-          Go there
+          Открыть
         </a>
       </AbsoluteFill>
     </WaitForFonts>

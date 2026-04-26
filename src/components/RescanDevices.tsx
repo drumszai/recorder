@@ -10,7 +10,7 @@ export const RescanDevices = () => {
       data-disabled={ctx?.isRescanning}
       className="cursor-pointer hover:underline inline opacity-70 hover:opacity-100 transition-opacity data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
     >
-      {ctx?.isRescanning ? "Rescanning..." : "Rescan devices"}
+      {ctx?.isRescanning ? "Сканирую…" : "Пересканировать устройства"}
     </div>
   );
 };

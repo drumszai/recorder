@@ -60,7 +60,7 @@ export const WaitingForDevices: React.FC<{
   if (devices === null) {
     return (
       <div className="absolute inset-0 flex justify-center items-center text-sm text-muted-foreground">
-        Finding devices...
+        Ищу устройства…
       </div>
     );
   }

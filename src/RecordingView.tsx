@@ -175,10 +175,10 @@ const InnerRecordingView: React.FC<{
 
   const videoDeviceLabel = useMemo(() => {
     if (mediaStream.videoDevice === "display-without-audio") {
-      return "Screen Share";
+      return "Демонстрация экрана";
     }
     if (mediaStream.videoDevice === "display-with-audio") {
-      return "Screen Share with audio";
+      return "Демонстрация экрана со звуком";
     }
 
     if (!activeVideoDevice) {
@@ -272,7 +272,7 @@ const InnerRecordingView: React.FC<{
         <Divider></Divider>
         <CurrentVideo
           resolution={resolution}
-          label={videoDeviceLabel ?? "No video selected"}
+          label={videoDeviceLabel ?? "Видео не выбрано"}
           isScreenshare={
             selectedVideoSource?.type === "display-without-audio" ||
             selectedVideoSource?.type === "display-with-audio"

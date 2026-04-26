@@ -121,7 +121,7 @@ export const TopBar: React.FC<{
       {window.remotionServerEnabled ? (
         <Button asChild variant="outline">
           <a href={`http://localhost:3000/${selectedFolder}`} target="_blank">
-            Go to Studio
+            Открыть студию
           </a>
         </Button>
       ) : null}

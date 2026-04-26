@@ -33,7 +33,7 @@ export const CurrentAudio: React.FC<{
     >
       <MicIcon></MicIcon>
       <div style={spacer}></div>
-      <div>{label ?? "No audio selected"}</div>
+      <div>{label ?? "Аудио не выбрано"}</div>
     </div>
   );
 };
