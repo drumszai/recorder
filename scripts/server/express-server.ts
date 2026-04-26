@@ -21,6 +21,7 @@ import {
   handleSeriesEpisodes,
   handleSeriesList,
 } from "./episodes";
+import { handleRenderStart, handleRenderStatus } from "./render";
 import { indexHtmlDev } from "./index-html";
 import { getProjectFolder } from "./projects";
 import {
@@ -76,6 +77,8 @@ export const startServer = async () => {
     if (method === "POST") return handleEditPost(req, res);
     return handleEditGet(req, res);
   });
+  app.use("/api/render/status", handleRenderStatus);
+  app.use("/api/render", handleRenderStart);
 
   app.use("/", indexHtmlDev(vite, rootDir));
 

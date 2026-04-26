@@ -100,6 +100,16 @@ const AUTOSAVE_DELAY_MS = 800;
 
 type ViewMode = "episode" | "series";
 
+type RenderState = {
+  id: string;
+  status: "queued" | "bundling" | "rendering" | "done" | "error";
+  progress: number;
+  outputName: string;
+  outputPath: string;
+  error?: string;
+  tail?: string[];
+} | null;
+
 const fetchAssets = async (
   series: string,
   episode: number,
@@ -153,6 +163,7 @@ export const EditorPage: React.FC<Props> = ({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [render, setRender] = useState<RenderState>(null);
 
   const loadEpisode = useCallback(async (s: string, ep: number) => {
     setLoading(true);
@@ -302,6 +313,77 @@ export const EditorPage: React.FC<Props> = ({
     setDirty(true);
   }, [transitionFrames, fadeInFrames, fadeOutFrames]);
 
+  const startRender = useCallback(async () => {
+    if (!selSeries) return;
+    if (view === "episode" && selEpisode === null) return;
+    setError(null);
+    // ensure latest edits are saved before kicking the render
+    if (view === "episode" && dirty) await save(true);
+    try {
+      const body =
+        view === "episode"
+          ? { mode: "episode", series: selSeries, episode: selEpisode }
+          : { mode: "series", series: selSeries };
+      const r = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await r.json()) as {
+        taskId?: string;
+        outputPath?: string;
+        error?: string;
+      };
+      if (data.error || !data.taskId) {
+        throw new Error(data.error ?? "render failed to start");
+      }
+      setRender({
+        id: data.taskId,
+        status: "queued",
+        progress: 0,
+        outputName: "",
+        outputPath: data.outputPath ?? "",
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [selSeries, selEpisode, view, dirty, save]);
+
+  // polling render status
+  useEffect(() => {
+    if (!render || render.status === "done" || render.status === "error") {
+      return;
+    }
+    const id = render.id;
+    const t = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/render/status?id=${encodeURIComponent(id)}`);
+        if (!r.ok) return;
+        const data = (await r.json()) as {
+          id: string;
+          status: "queued" | "bundling" | "rendering" | "done" | "error";
+          progress: number;
+          outputPath: string;
+          outputName: string;
+          error?: string;
+          tail?: string[];
+        };
+        setRender({
+          id: data.id,
+          status: data.status,
+          progress: data.progress,
+          outputPath: data.outputPath,
+          outputName: data.outputName,
+          error: data.error,
+          tail: data.tail,
+        });
+      } catch {
+        /* ignore transient */
+      }
+    }, 1500);
+    return () => clearInterval(t);
+  }, [render]);
+
   const headerLabel =
     view === "episode"
       ? `${selSeries ?? "—"} / ${selEpisode !== null ? `Эпизод ${selEpisode}` : "—"}`
@@ -423,8 +505,105 @@ export const EditorPage: React.FC<Props> = ({
             >
               {saving ? "Сохраняю…" : "Сохранить"}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => void startRender()}
+              disabled={
+                !selSeries ||
+                (view === "episode" && selEpisode === null) ||
+                (render !== null &&
+                  render.status !== "done" &&
+                  render.status !== "error")
+              }
+              title="Запустить npx remotion render — финальный mp4 ляжет в папку «Рендеры» сериала"
+            >
+              {render &&
+              render.status !== "done" &&
+              render.status !== "error"
+                ? "Рендерю…"
+                : "Рендерить mp4"}
+            </Button>
           </div>
         </div>
+
+        {render ? (
+          <div
+            style={{
+              padding: "8px 16px",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              fontSize: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>
+                {render.status === "queued" && "В очереди…"}
+                {render.status === "bundling" &&
+                  `Собираю проект (${Math.round(render.progress * 100)}%)…`}
+                {render.status === "rendering" &&
+                  `Рендерю кадры (${Math.round(render.progress * 100)}%)…`}
+                {render.status === "done" && (
+                  <>
+                    Готово: <code>{render.outputName}</code>
+                  </>
+                )}
+                {render.status === "error" && (
+                  <span style={{ color: "#ef4444" }}>
+                    Ошибка: {render.error ?? "неизвестно"}
+                  </span>
+                )}
+              </span>
+              {render.status === "done" ? (
+                <a
+                  href={`/api/file?path=${encodeURIComponent(render.outputPath)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "#a5b4fc" }}
+                >
+                  Открыть mp4
+                </a>
+              ) : null}
+            </div>
+            {render.status !== "done" && render.status !== "error" ? (
+              <div
+                style={{
+                  height: 4,
+                  background: "rgba(255,255,255,0.08)",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.max(2, render.progress * 100)}%`,
+                    height: "100%",
+                    background: "rgba(99,102,241,0.7)",
+                    transition: "width 0.3s",
+                  }}
+                />
+              </div>
+            ) : null}
+            {render.status === "error" && render.tail ? (
+              <pre
+                style={{
+                  margin: 0,
+                  padding: 6,
+                  background: "rgba(255,255,255,0.03)",
+                  borderRadius: 4,
+                  fontSize: 10,
+                  maxHeight: 80,
+                  overflow: "auto",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {render.tail.join("\n")}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
 
         {view === "episode" ? (
           selSeries && selEpisode !== null && !loading && chunks.length > 0 ? (

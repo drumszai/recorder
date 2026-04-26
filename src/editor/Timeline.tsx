@@ -153,8 +153,14 @@ type DragState =
       pxPerSec: number;
     };
 
+type ReorderState = {
+  draggingIdx: number;
+  hoverIdx: number | null;
+} | null;
+
 export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
   const [drag, setDrag] = useState<DragState>(null);
+  const [reorder, setReorder] = useState<ReorderState>(null);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [hoverSplit, setHoverSplit] = useState<{
     clipId: string;
@@ -162,6 +168,54 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
     timeSec: number;
   } | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
+
+  const onDragStartClip = useCallback(
+    (e: React.DragEvent, idx: number) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(idx));
+      setReorder({ draggingIdx: idx, hoverIdx: null });
+    },
+    [],
+  );
+
+  const onDragOverClip = useCallback(
+    (e: React.DragEvent, idx: number) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setReorder((prev) =>
+        prev ? { ...prev, hoverIdx: idx } : prev,
+      );
+    },
+    [],
+  );
+
+  const onDropClip = useCallback(
+    (e: React.DragEvent, targetIdx: number) => {
+      e.preventDefault();
+      const sourceStr = e.dataTransfer.getData("text/plain");
+      const sourceIdx = Number(sourceStr);
+      if (Number.isNaN(sourceIdx) || sourceIdx === targetIdx) {
+        setReorder(null);
+        return;
+      }
+      const next = [...clips];
+      const [moved] = next.splice(sourceIdx, 1);
+      if (!moved) {
+        setReorder(null);
+        return;
+      }
+      const insertAt =
+        sourceIdx < targetIdx ? targetIdx : targetIdx;
+      next.splice(insertAt, 0, moved);
+      onClipsChange(next);
+      setReorder(null);
+    },
+    [clips, onClipsChange],
+  );
+
+  const onDragEndClip = useCallback(() => {
+    setReorder(null);
+  }, []);
 
   // close popover on outside click
   useEffect(() => {
@@ -318,10 +372,11 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
         итого {fmt(totalSec)}
       </div>
       <div style={helpStyle}>
-        <b>Двойной клик</b> по клипу — разрезать в этом месте. <b>Тяни синюю
-        полоску</b> на краю клипа — обрезать начало/конец. <b>Клик по
-        кружку перехода</b> между клипами — поменять переход. Изменения
-        автосохраняются.
+        <b>Двойной клик</b> по клипу — разрезать в этом месте.{" "}
+        <b>Тяни синюю полоску</b> на краю клипа — обрезать начало/конец.{" "}
+        <b>Перетащи клип</b> на другой — поменять их местами.{" "}
+        <b>Клик по кружку перехода</b> между клипами — поменять переход.
+        Изменения автосохраняются.
       </div>
       <div ref={trackRef} style={track}>
         {clips.flatMap((clip, i) => {
@@ -331,37 +386,53 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
           const wPct = (lengths[i]! / totalSec) * 100;
           const showHover =
             hoverSplit && hoverSplit.clipId === clip.id ? hoverSplit : null;
+          const isHover = reorder?.hoverIdx === i;
+          const isDragSource = reorder?.draggingIdx === i;
           const box = (
             <div
               key={`c-${clip.id}`}
-              style={{ ...clipBox, flex: `0 0 ${wPct}%` }}
+              draggable
+              onDragStart={(e) => onDragStartClip(e, i)}
+              onDragOver={(e) => onDragOverClip(e, i)}
+              onDrop={(e) => onDropClip(e, i)}
+              onDragEnd={onDragEndClip}
+              style={{
+                ...clipBox,
+                flex: `0 0 ${wPct}%`,
+                opacity: isDragSource ? 0.4 : 1,
+                outline: isHover && !isDragSource ? "2px solid #8b5cf6" : "none",
+              }}
               onDoubleClick={(e) => onClipDoubleClick(e, clip, i)}
               onMouseMove={(e) => onClipPointerMove(e, clip)}
               onMouseLeave={onClipPointerLeave}
-              title={`${clip.source}\nоригинал ${original ? fmt(original) : "?"}\nin ${fmt(clip.inSec)} → out ${fmt(clip.outSec)}\nдлится ${fmt(visible)}`}
+              title={`${clip.source}\nоригинал ${original ? fmt(original) : "?"}\nin ${fmt(clip.inSec)} → out ${fmt(clip.outSec)}\nдлится ${fmt(visible)}\n\nДвойной клик — разрезать\nТащи — поменять местами с другим клипом`}
             >
               <div
                 style={handleStyle("left")}
-                onPointerDown={(e) =>
+                draggable={false}
+                onPointerDown={(e) => {
+                  e.preventDefault();
                   startEdgeDrag(
                     e,
                     clip,
                     "in",
                     e.currentTarget.parentElement as HTMLElement,
-                  )
-                }
+                  );
+                }}
                 title="Тяни — обрезать начало"
               />
               <div
                 style={handleStyle("right")}
-                onPointerDown={(e) =>
+                draggable={false}
+                onPointerDown={(e) => {
+                  e.preventDefault();
                   startEdgeDrag(
                     e,
                     clip,
                     "out",
                     e.currentTarget.parentElement as HTMLElement,
-                  )
-                }
+                  );
+                }}
                 title="Тяни — обрезать конец"
               />
               {showHover ? (
