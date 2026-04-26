@@ -7,18 +7,8 @@ import {
   type EpisodeChunk,
   type EpisodeMusic,
 } from "../../remotion/Episode";
-
-type Props = {
-  series: string;
-  episode: number;
-  chunks: EpisodeChunk[];
-  music: EpisodeMusic;
-  seriesFolder: string;
-  clips: Clip[];
-  transitionFrames: number;
-  fadeInFrames: number;
-  fadeOutFrames: number;
-};
+import { Series, type SeriesEpisodePack } from "../../remotion/Series";
+import type { TransitionType } from "../../remotion/Episode";
 
 const FPS = 30;
 const COMP_W = 1080;
@@ -41,33 +31,90 @@ const playerWrap: React.CSSProperties = {
   maxHeight: "100%",
 };
 
-export const PreviewPane: React.FC<Props> = ({
-  series,
-  episode,
-  chunks,
-  music,
-  seriesFolder,
-  clips,
-  transitionFrames,
-  fadeInFrames,
-  fadeOutFrames,
-}) => {
-  const dur = Math.max(60, totalEpisodeFrames(clips, transitionFrames, FPS));
+type EpisodeProps = {
+  mode: "episode";
+  series: string;
+  episode: number;
+  chunks: EpisodeChunk[];
+  music: EpisodeMusic;
+  seriesFolder: string;
+  clips: Clip[];
+  transitionFrames: number;
+  fadeInFrames: number;
+  fadeOutFrames: number;
+};
+
+type SeriesProps = {
+  mode: "series";
+  series: string;
+  episodes: SeriesEpisodePack[];
+  transitionBetweenEpisodes: TransitionType;
+  transitionFrames: number;
+  fadeInFrames: number;
+  fadeOutFrames: number;
+};
+
+type Props = EpisodeProps | SeriesProps;
+
+export const PreviewPane: React.FC<Props> = (props) => {
+  if (props.mode === "episode") {
+    const dur = Math.max(
+      60,
+      totalEpisodeFrames(props.clips, props.transitionFrames, FPS),
+    );
+    return (
+      <div style={wrap}>
+        <div style={playerWrap}>
+          <Player
+            component={Episode}
+            inputProps={{
+              series: props.series,
+              episode: props.episode,
+              chunks: props.chunks,
+              music: props.music,
+              seriesFolder: props.seriesFolder,
+              clips: props.clips,
+              transitionFrames: props.transitionFrames,
+              fadeInFrames: props.fadeInFrames,
+              fadeOutFrames: props.fadeOutFrames,
+              fallbackChunkDurationFrames: FALLBACK_FRAMES,
+            }}
+            durationInFrames={dur}
+            compositionWidth={COMP_W}
+            compositionHeight={COMP_H}
+            fps={FPS}
+            controls
+            style={{ width: "100%", height: "100%" }}
+            acknowledgeRemotionLicense
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // mode === "series"
+  const perEp = props.episodes.map((p) =>
+    totalEpisodeFrames(p.clips, props.transitionFrames, FPS),
+  );
+  const sumEp = perEp.reduce((a, b) => a + b, 0);
+  const overlap =
+    props.transitionBetweenEpisodes !== "cut"
+      ? Math.max(0, props.episodes.length - 1) * props.transitionFrames
+      : 0;
+  const dur = Math.max(60, sumEp - overlap);
+
   return (
     <div style={wrap}>
       <div style={playerWrap}>
         <Player
-          component={Episode}
+          component={Series}
           inputProps={{
-            series,
-            episode,
-            chunks,
-            music,
-            seriesFolder,
-            clips,
-            transitionFrames,
-            fadeInFrames,
-            fadeOutFrames,
+            series: props.series,
+            episodes: props.episodes,
+            transitionBetweenEpisodes: props.transitionBetweenEpisodes,
+            transitionFrames: props.transitionFrames,
+            fadeInFrames: props.fadeInFrames,
+            fadeOutFrames: props.fadeOutFrames,
             fallbackChunkDurationFrames: FALLBACK_FRAMES,
           }}
           durationInFrames={dur}
