@@ -3,6 +3,8 @@ import { videoConf } from "../config/scenes";
 import {
   Episode,
   episodeSchema,
+  visibleDurationFrames,
+  type ChunkOverride,
   type EpisodeChunk,
   type EpisodeMusic,
   type TransitionType,
@@ -39,23 +41,23 @@ const totalDurationFrames = (
   chunks: EpisodeChunk[],
   transitions: TransitionType[],
   transitionFrames: number,
+  chunkOverrides: ChunkOverride[],
   fps: number,
 ): number => {
   if (chunks.length === 0) return 60;
-  const sumChunks = chunks.reduce((sum, c) => {
-    const f =
-      c.durationSec !== null
-        ? Math.round(c.durationSec * fps)
-        : FALLBACK_CHUNK_FRAMES;
-    return sum + f;
-  }, 0);
-  // each non-cut transition between two chunks overlaps both, shortening the total by transitionFrames
+  const sumVisible = chunks.reduce(
+    (sum, c) =>
+      sum +
+      visibleDurationFrames(c, chunkOverrides, fps, FALLBACK_CHUNK_FRAMES),
+    0,
+  );
+  // each non-cut transition between two chunks overlaps both, shortening total by transitionFrames
   let overlap = 0;
   for (let i = 0; i < chunks.length - 1; i++) {
     const t = transitions[i] ?? "cut";
     if (t !== "cut") overlap += transitionFrames;
   }
-  return Math.max(60, sumChunks - overlap);
+  return Math.max(60, sumVisible - overlap);
 };
 
 export const RemotionRoot = () => {
@@ -74,6 +76,7 @@ export const RemotionRoot = () => {
           episode: 1,
           transitions: ["fade", "fade", "fade", "fade"] as TransitionType[],
           transitionFrames: DEFAULT_TRANSITION_FRAMES,
+          chunkOverrides: [] as ChunkOverride[],
           chunks: [] as EpisodeChunk[],
           music: null as EpisodeMusic,
           fallbackChunkDurationFrames: FALLBACK_CHUNK_FRAMES,
@@ -95,6 +98,7 @@ export const RemotionRoot = () => {
               chunks,
               padded,
               props.transitionFrames,
+              props.chunkOverrides,
               FPS,
             ),
           };

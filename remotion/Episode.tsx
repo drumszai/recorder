@@ -27,11 +27,20 @@ export const transitionType = z.enum([
 
 export type TransitionType = z.infer<typeof transitionType>;
 
+export const chunkOverrideSchema = z.object({
+  filename: z.string(),
+  trimStartFrames: z.number().int().min(0).max(900).default(0),
+  trimEndFrames: z.number().int().min(0).max(900).default(0),
+});
+
+export type ChunkOverride = z.infer<typeof chunkOverrideSchema>;
+
 export const episodeSchema = z.object({
   series: z.string(),
   episode: z.number().int().min(1),
   transitions: z.array(transitionType),
   transitionFrames: z.number().int().min(0).max(120),
+  chunkOverrides: z.array(chunkOverrideSchema),
 });
 
 export type EpisodeChunk = {
@@ -51,6 +60,35 @@ export type EpisodeProps = z.infer<typeof episodeSchema> & {
   chunks: EpisodeChunk[];
   music: EpisodeMusic;
   fallbackChunkDurationFrames: number;
+};
+
+export const trimsFor = (
+  filename: string,
+  overrides: ChunkOverride[],
+): { trimStartFrames: number; trimEndFrames: number } => {
+  const found = overrides.find((o) => o.filename === filename);
+  return {
+    trimStartFrames: found?.trimStartFrames ?? 0,
+    trimEndFrames: found?.trimEndFrames ?? 0,
+  };
+};
+
+export const visibleDurationFrames = (
+  chunk: EpisodeChunk,
+  overrides: ChunkOverride[],
+  fps: number,
+  fallback: number,
+): number => {
+  const raw =
+    chunk.durationSec !== null
+      ? Math.round(chunk.durationSec * fps)
+      : fallback;
+  const { trimStartFrames, trimEndFrames } = trimsFor(
+    chunk.filename,
+    overrides,
+  );
+  const result = raw - trimStartFrames - trimEndFrames;
+  return Math.max(1, result);
 };
 
 const fileUrl = (absPath: string) =>
@@ -95,6 +133,7 @@ export const Episode: React.FC<EpisodeProps> = ({
   music,
   transitions,
   transitionFrames,
+  chunkOverrides,
   fallbackChunkDurationFrames,
 }) => {
   const { fps, width, height } = useVideoConfig();
@@ -123,17 +162,23 @@ export const Episode: React.FC<EpisodeProps> = ({
     <AbsoluteFill style={{ background: "black" }}>
       <TransitionSeries>
         {chunks.flatMap((chunk, i) => {
-          const dur =
-            chunk.durationSec !== null
-              ? Math.round(chunk.durationSec * fps)
-              : fallbackChunkDurationFrames;
+          const visible = visibleDurationFrames(
+            chunk,
+            chunkOverrides,
+            fps,
+            fallbackChunkDurationFrames,
+          );
+          const { trimStartFrames } = trimsFor(chunk.filename, chunkOverrides);
           const seq = (
             <TransitionSeries.Sequence
               key={`seq-${chunk.filename}`}
-              durationInFrames={dur}
+              durationInFrames={visible}
               name={`CH${chunk.chunk} v${chunk.version}`}
             >
-              <OffthreadVideo src={fileUrl(chunk.path)} />
+              <OffthreadVideo
+                src={fileUrl(chunk.path)}
+                startFrom={trimStartFrames}
+              />
             </TransitionSeries.Sequence>
           );
 
