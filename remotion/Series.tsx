@@ -36,11 +36,36 @@ export type SeriesEpisodePack = z.infer<typeof seriesEpisodePackSchema> & {
 };
 
 export const seriesSchema = z.object({
-  series: z.string(),
-  transitionBetweenEpisodes: transitionType,
-  transitionFrames: z.number().int().min(0).max(120),
-  fadeInFrames: z.number().int().min(0).max(180),
-  fadeOutFrames: z.number().int().min(0).max(180),
+  series: z
+    .string()
+    .describe("Название сериала из .pipeline_registry.json."),
+  transitionBetweenEpisodes: transitionType.describe(
+    "Какой переход ставить между сериями (на стыках E1→E2, E2→E3 и т.д.). cut — без перехода.",
+  ),
+  transitionFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(120)
+    .describe(
+      "Длительность каждого перехода в кадрах (30 fps → 30 кадров = 1 сек). Применяется и внутри серий, и на стыках серий.",
+    ),
+  fadeInFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(180)
+    .describe(
+      "Плавное появление из чёрного в самом начале всего сериала. 0 = выключено.",
+    ),
+  fadeOutFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(180)
+    .describe(
+      "Плавное затемнение в самом конце всего сериала. 0 = выключено.",
+    ),
 });
 
 export type SeriesProps = z.infer<typeof seriesSchema> & {

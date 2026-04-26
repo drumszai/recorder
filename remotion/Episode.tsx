@@ -14,38 +14,93 @@ import {
 } from "remotion";
 import { z } from "zod";
 
-export const transitionType = z.enum([
-  "cut",
-  "fade",
-  "slide-left",
-  "slide-right",
-  "slide-up",
-  "slide-down",
-  "wipe-left",
-  "wipe-right",
-  "flip",
-  "clock",
-]);
+export const transitionType = z
+  .enum([
+    "cut",
+    "fade",
+    "slide-left",
+    "slide-right",
+    "slide-up",
+    "slide-down",
+    "wipe-left",
+    "wipe-right",
+    "flip",
+    "clock",
+  ])
+  .describe(
+    "Тип перехода между этим клипом и следующим. cut — без перехода, fade — плавное затемнение, slide — следующий клип въезжает с указанной стороны, wipe — стирание полосой, flip — переворот, clock — круговое раскрытие.",
+  );
 
 export type TransitionType = z.infer<typeof transitionType>;
 
-export const clipSchema = z.object({
-  id: z.string(),
-  source: z.string(), // mp4 filename inside the series sources folder
-  inSec: z.number().min(0),
-  outSec: z.number().min(0),
-  transitionAfter: transitionType,
-});
+export const clipSchema = z
+  .object({
+    id: z.string().describe("Уникальный ID клипа. Не редактируй вручную."),
+    source: z
+      .string()
+      .describe(
+        "Имя mp4-файла из папки «Исходники». Должно совпадать в точности (E1 CH1 V1.mp4).",
+      ),
+    inSec: z
+      .number()
+      .min(0)
+      .describe(
+        "С какой секунды исходного mp4 начинается этот клип. 0 = с самого начала. Чтобы обрезать начало — увеличь это число.",
+      ),
+    outSec: z
+      .number()
+      .min(0)
+      .describe(
+        "На какой секунде исходного mp4 клип заканчивается. Чтобы обрезать конец — уменьши это число. Для split одного чанка на два клипа используй один и тот же source с разными inSec/outSec.",
+      ),
+    transitionAfter: transitionType,
+  })
+  .describe(
+    "Один клип на тайм-лайне. Чтобы разрезать чанк на куски — добавь несколько клипов с одним и тем же source.",
+  );
 
 export type Clip = z.infer<typeof clipSchema>;
 
 export const episodeSchema = z.object({
-  series: z.string(),
-  episode: z.number().int().min(1),
-  clips: z.array(clipSchema),
-  transitionFrames: z.number().int().min(0).max(120),
-  fadeInFrames: z.number().int().min(0).max(180),
-  fadeOutFrames: z.number().int().min(0).max(180),
+  series: z
+    .string()
+    .describe(
+      "Название сериала из .pipeline_registry.json. Меняй здесь, чтобы переключить серию.",
+    ),
+  episode: z
+    .number()
+    .int()
+    .min(1)
+    .describe("Номер серии (1, 2, 3...). Файлы вида E{N} CH{M} V{V}.mp4."),
+  clips: z
+    .array(clipSchema)
+    .describe(
+      "Тайм-лайн серии: список клипов по порядку. Если оставить пустым — соберётся автоматически из всех чанков серии (один клип на чанк, fade между ними).",
+    ),
+  transitionFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(120)
+    .describe(
+      "Длительность каждого перехода в кадрах (30 fps → 30 кадров = 1 сек). Применяется ко всем переходам между клипами.",
+    ),
+  fadeInFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(180)
+    .describe(
+      "Сколько кадров плавного появления из чёрного в начале серии. 0 = выключено.",
+    ),
+  fadeOutFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(180)
+    .describe(
+      "Сколько кадров плавного ухода в чёрное в конце серии. 0 = выключено.",
+    ),
 });
 
 export type EpisodeChunk = {
