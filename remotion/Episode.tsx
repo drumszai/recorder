@@ -4,6 +4,7 @@ import {
   OffthreadVideo,
   Sequence,
   staticFile,
+  useVideoConfig,
 } from "remotion";
 
 export type EpisodeChunk = {
@@ -11,6 +12,7 @@ export type EpisodeChunk = {
   path: string;
   chunk: number;
   version: number;
+  durationSec: number | null;
 };
 
 export type EpisodeMusic = {
@@ -23,7 +25,7 @@ export type EpisodeProps = {
   episode: number;
   chunks: EpisodeChunk[];
   music: EpisodeMusic;
-  chunkDurationFrames: number;
+  fallbackChunkDurationFrames: number;
 };
 
 const fileUrl = (absPath: string) =>
@@ -32,8 +34,10 @@ const fileUrl = (absPath: string) =>
 export const Episode: React.FC<EpisodeProps> = ({
   chunks,
   music,
-  chunkDurationFrames,
+  fallbackChunkDurationFrames,
 }) => {
+  const { fps } = useVideoConfig();
+
   if (chunks.length === 0) {
     return (
       <AbsoluteFill
@@ -54,21 +58,28 @@ export const Episode: React.FC<EpisodeProps> = ({
     );
   }
 
+  let cursor = 0;
   return (
     <AbsoluteFill style={{ background: "black" }}>
-      {chunks.map((chunk, i) => (
-        <Sequence
-          key={chunk.filename}
-          from={i * chunkDurationFrames}
-          durationInFrames={chunkDurationFrames}
-          name={`CH${chunk.chunk} v${chunk.version}`}
-        >
-          <OffthreadVideo src={fileUrl(chunk.path)} />
-        </Sequence>
-      ))}
-      {music ? (
-        <Audio src={fileUrl(music.path)} volume={0.3} loop />
-      ) : null}
+      {chunks.map((chunk) => {
+        const dur =
+          chunk.durationSec !== null
+            ? Math.round(chunk.durationSec * fps)
+            : fallbackChunkDurationFrames;
+        const seq = (
+          <Sequence
+            key={chunk.filename}
+            from={cursor}
+            durationInFrames={dur}
+            name={`CH${chunk.chunk} v${chunk.version}`}
+          >
+            <OffthreadVideo src={fileUrl(chunk.path)} />
+          </Sequence>
+        );
+        cursor += dur;
+        return seq;
+      })}
+      {music ? <Audio src={fileUrl(music.path)} volume={0.3} loop /> : null}
     </AbsoluteFill>
   );
 };

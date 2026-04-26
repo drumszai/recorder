@@ -1,3 +1,5 @@
+import { parseMedia } from "@remotion/media-parser";
+import { nodeReader } from "@remotion/media-parser/node";
 import {
   createReadStream,
   existsSync,
@@ -7,6 +9,27 @@ import {
 } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+
+const durationCache = new Map<string, number>();
+
+const getDurationSec = async (absPath: string): Promise<number | null> => {
+  const cached = durationCache.get(absPath);
+  if (cached !== undefined) return cached;
+  try {
+    const result = await parseMedia({
+      src: absPath,
+      reader: nodeReader,
+      fields: { durationInSeconds: true },
+      acknowledgeRemotionLicense: true,
+    });
+    const dur = result.durationInSeconds;
+    if (dur === null || dur === undefined) return null;
+    durationCache.set(absPath, dur);
+    return dur;
+  } catch {
+    return null;
+  }
+};
 
 const GAME_GEARS_ROOT = "/Users/a1234/Documents/GAME GEARS";
 const REGISTRY_PATH = path.join(GAME_GEARS_ROOT, ".pipeline_registry.json");
@@ -122,7 +145,7 @@ export const handleSeriesEpisodes = (
   }
 };
 
-export const handleEpisodeAssets = (
+export const handleEpisodeAssets = async (
   req: IncomingMessage,
   res: ServerResponse,
 ) => {
@@ -141,12 +164,20 @@ export const handleEpisodeAssets = (
     if (!sources) return json(res, 404, { error: "no sources folder" });
 
     const chunksAll = listChunks(sources).filter((c) => c.episode === episode);
-    const chunks = pickLatestVersion(chunksAll).map((c) => ({
-      filename: c.file,
-      path: path.join(sources, c.file),
-      chunk: c.chunk,
-      version: c.version,
-    }));
+    const picked = pickLatestVersion(chunksAll);
+    const chunks = await Promise.all(
+      picked.map(async (c) => {
+        const abs = path.join(sources, c.file);
+        const durationSec = await getDurationSec(abs);
+        return {
+          filename: c.file,
+          path: abs,
+          chunk: c.chunk,
+          version: c.version,
+          durationSec,
+        };
+      }),
+    );
 
     const sounds = findSoundsFolder(folder);
     let music: { filename: string; path: string } | null = null;

@@ -6,7 +6,7 @@ import { Main } from "./Main";
 import { calcMetadata } from "./calculate-metadata/calc-metadata";
 
 const FPS = 30;
-const DEFAULT_CHUNK_DURATION_FRAMES = 180; // ~6s @ 30fps — приближение
+const FALLBACK_CHUNK_FRAMES = 180; // ~6s @ 30fps — used when parseMedia fails
 
 const fetchEpisodeAssets = async (
   series: string,
@@ -28,6 +28,17 @@ const fetchEpisodeAssets = async (
   }
 };
 
+const totalDurationFrames = (chunks: EpisodeChunk[], fps: number): number => {
+  if (chunks.length === 0) return 60;
+  return chunks.reduce((sum, c) => {
+    const f =
+      c.durationSec !== null
+        ? Math.round(c.durationSec * fps)
+        : FALLBACK_CHUNK_FRAMES;
+    return sum + f;
+  }, 0);
+};
+
 export const RemotionRoot = () => {
   return (
     <>
@@ -43,18 +54,16 @@ export const RemotionRoot = () => {
           episode: 1,
           chunks: [] as EpisodeChunk[],
           music: null as EpisodeMusic,
-          chunkDurationFrames: DEFAULT_CHUNK_DURATION_FRAMES,
+          fallbackChunkDurationFrames: FALLBACK_CHUNK_FRAMES,
         }}
         calculateMetadata={async ({ props }) => {
           const { chunks, music } = await fetchEpisodeAssets(
             props.series,
             props.episode,
           );
-          const dur = props.chunkDurationFrames || DEFAULT_CHUNK_DURATION_FRAMES;
-          const total = Math.max(60, chunks.length * dur);
           return {
             props: { ...props, chunks, music },
-            durationInFrames: total,
+            durationInFrames: totalDurationFrames(chunks, FPS),
           };
         }}
       />
