@@ -1,12 +1,19 @@
 import { Composition } from "remotion";
 import { videoConf } from "../config/scenes";
-import { Episode, type EpisodeChunk, type EpisodeMusic } from "./Episode";
+import {
+  Episode,
+  episodeSchema,
+  type EpisodeChunk,
+  type EpisodeMusic,
+  type TransitionType,
+} from "./Episode";
 import { GoToRecorder } from "./GoToRecorder";
 import { Main } from "./Main";
 import { calcMetadata } from "./calculate-metadata/calc-metadata";
 
 const FPS = 30;
 const FALLBACK_CHUNK_FRAMES = 180; // ~6s @ 30fps — used when parseMedia fails
+const DEFAULT_TRANSITION_FRAMES = 15; // ~0.5s @ 30fps
 
 const fetchEpisodeAssets = async (
   series: string,
@@ -28,15 +35,27 @@ const fetchEpisodeAssets = async (
   }
 };
 
-const totalDurationFrames = (chunks: EpisodeChunk[], fps: number): number => {
+const totalDurationFrames = (
+  chunks: EpisodeChunk[],
+  transitions: TransitionType[],
+  transitionFrames: number,
+  fps: number,
+): number => {
   if (chunks.length === 0) return 60;
-  return chunks.reduce((sum, c) => {
+  const sumChunks = chunks.reduce((sum, c) => {
     const f =
       c.durationSec !== null
         ? Math.round(c.durationSec * fps)
         : FALLBACK_CHUNK_FRAMES;
     return sum + f;
   }, 0);
+  // each non-cut transition between two chunks overlaps both, shortening the total by transitionFrames
+  let overlap = 0;
+  for (let i = 0; i < chunks.length - 1; i++) {
+    const t = transitions[i] ?? "cut";
+    if (t !== "cut") overlap += transitionFrames;
+  }
+  return Math.max(60, sumChunks - overlap);
 };
 
 export const RemotionRoot = () => {
@@ -45,6 +64,7 @@ export const RemotionRoot = () => {
       <Composition
         component={Episode}
         id="Episode"
+        schema={episodeSchema}
         width={1080}
         height={1920}
         fps={FPS}
@@ -52,6 +72,8 @@ export const RemotionRoot = () => {
         defaultProps={{
           series: "Divorce in 5 Minutes",
           episode: 1,
+          transitions: ["fade", "fade", "fade", "fade"] as TransitionType[],
+          transitionFrames: DEFAULT_TRANSITION_FRAMES,
           chunks: [] as EpisodeChunk[],
           music: null as EpisodeMusic,
           fallbackChunkDurationFrames: FALLBACK_CHUNK_FRAMES,
@@ -61,9 +83,20 @@ export const RemotionRoot = () => {
             props.series,
             props.episode,
           );
+          // pad transitions array to chunks.length - 1 with 'fade' default
+          const need = Math.max(0, chunks.length - 1);
+          const padded: TransitionType[] = [];
+          for (let i = 0; i < need; i++) {
+            padded.push(props.transitions[i] ?? "fade");
+          }
           return {
-            props: { ...props, chunks, music },
-            durationInFrames: totalDurationFrames(chunks, FPS),
+            props: { ...props, chunks, music, transitions: padded },
+            durationInFrames: totalDurationFrames(
+              chunks,
+              padded,
+              props.transitionFrames,
+              FPS,
+            ),
           };
         }}
       />
