@@ -5,6 +5,10 @@ import {
   type TransitionType,
 } from "../../remotion/Episode";
 import type { Chunk } from "./types";
+import { Waveform } from "./Waveform";
+
+const fileUrl = (absPath: string) =>
+  `/api/file?path=${encodeURIComponent(absPath)}`;
 
 type Props = {
   clips: Clip[];
@@ -454,6 +458,21 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
                   <span style={{ opacity: 0.6 }}> / из {fmt(original)}</span>
                 ) : null}
               </div>
+              {(() => {
+                const chunkPath = chunks.find(
+                  (c) => c.filename === clip.source,
+                )?.path;
+                if (!chunkPath) return null;
+                return (
+                  <Waveform
+                    cacheKey={clip.source}
+                    url={fileUrl(chunkPath)}
+                    inSec={clip.inSec}
+                    outSec={clip.outSec}
+                    height={20}
+                  />
+                );
+              })()}
               {clips.length > 1 ? (
                 <button
                   onClick={(e) => {

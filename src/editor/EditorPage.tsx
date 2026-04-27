@@ -111,6 +111,37 @@ type RenderState = {
   tail?: string[];
 } | null;
 
+type WhisperStatusResponse = {
+  install: {
+    status:
+      | "idle"
+      | "installing-whisper"
+      | "downloading-model"
+      | "ready"
+      | "error";
+    progress: number;
+    model: string;
+    error?: string;
+    tail?: string[];
+  };
+  transcribe: {
+    status:
+      | "idle"
+      | "extracting-audio"
+      | "transcribing"
+      | "saving"
+      | "done"
+      | "error";
+    progress: number;
+    series: string | null;
+    episode: number | null;
+    transcriptPath?: string;
+    srtPath?: string;
+    error?: string;
+    tail?: string[];
+  };
+};
+
 const fetchAssets = async (
   series: string,
   episode: number,
@@ -170,6 +201,7 @@ export const EditorPage: React.FC<Props> = ({
   const [subtitlesStatus, setSubtitlesStatus] = useState<
     "idle" | "loading" | "missing" | "ok" | "error"
   >("idle");
+  const [whisper, setWhisper] = useState<WhisperStatusResponse | null>(null);
 
   const loadEpisode = useCallback(async (s: string, ep: number) => {
     setLoading(true);
@@ -318,6 +350,126 @@ export const EditorPage: React.FC<Props> = ({
   useEffect(() => {
     setDirty(true);
   }, [transitionFrames, fadeInFrames, fadeOutFrames]);
+
+  // poll whisper status (always — install state survives across episodes)
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/whisper/status");
+        if (r.ok) {
+          const data = (await r.json()) as WhisperStatusResponse;
+          if (!cancelled) setWhisper(data);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const t = setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  const onInstallWhisper = useCallback(async () => {
+    setError(null);
+    try {
+      const r = await fetch("/api/whisper/install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "medium" }),
+      });
+      const data = (await r.json()) as { error?: string; ok?: boolean };
+      if (data.error) setError(data.error);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
+  const onTranscribe = useCallback(async () => {
+    if (!selSeries || selEpisode === null) return;
+    setError(null);
+    try {
+      const r = await fetch("/api/whisper/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          series: selSeries,
+          episode: selEpisode,
+          language: "auto",
+        }),
+      });
+      const data = (await r.json()) as { error?: string; ok?: boolean };
+      if (data.error) setError(data.error);
+      // re-load subtitles when transcribe finishes (polling covers status,
+      // user can flip the toggle to load fresh srt)
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [selSeries, selEpisode]);
+
+  const onAutoCut = useCallback(async () => {
+    if (!selSeries || selEpisode === null) return;
+    setError(null);
+    try {
+      // ensure latest edits are saved so the server reads our current clips
+      if (dirty) await save(true);
+      const r = await fetch("/api/auto-cut", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: selSeries, episode: selEpisode }),
+      });
+      const data = (await r.json()) as {
+        error?: string;
+        updated?: number;
+        total?: number;
+      };
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      // refresh state so the new edit.json takes effect
+      void loadEpisode(selSeries, selEpisode);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [selSeries, selEpisode, dirty, save, loadEpisode]);
+
+  const onSkipSilence = useCallback(async () => {
+    if (!selSeries || selEpisode === null) return;
+    setError(null);
+    try {
+      if (dirty) await save(true);
+      const r = await fetch("/api/skip-silence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          series: selSeries,
+          episode: selEpisode,
+          minGapSec: 1.5,
+        }),
+      });
+      const data = (await r.json()) as {
+        error?: string;
+        removed?: number;
+        clipsAfter?: number;
+      };
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      void loadEpisode(selSeries, selEpisode);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [selSeries, selEpisode, dirty, save, loadEpisode]);
+
+  const transcriptDoneForCurrent =
+    whisper?.transcribe.status === "done" &&
+    whisper.transcribe.series === selSeries &&
+    whisper.transcribe.episode === selEpisode;
 
   // load subtitles when toggle on or episode changes
   useEffect(() => {
@@ -593,8 +745,163 @@ export const EditorPage: React.FC<Props> = ({
                 ? "Рендерю…"
                 : "Рендерить mp4"}
             </Button>
+            {whisper?.install.status === "ready" ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => void onTranscribe()}
+                  disabled={
+                    !selSeries ||
+                    selEpisode === null ||
+                    view !== "episode" ||
+                    whisper.transcribe.status === "extracting-audio" ||
+                    whisper.transcribe.status === "transcribing" ||
+                    whisper.transcribe.status === "saving"
+                  }
+                  title="Распознать речь Whisper'ом, сохранить .ru.srt + transcript.json в .gg-editor/"
+                >
+                  {whisper.transcribe.status === "transcribing" ||
+                  whisper.transcribe.status === "extracting-audio" ||
+                  whisper.transcribe.status === "saving"
+                    ? "Распознаю…"
+                    : "Распознать речь"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void onAutoCut()}
+                  disabled={!transcriptDoneForCurrent || view !== "episode"}
+                  title="Подогнать inSec/outSec клипов под границы слов из transcript.json"
+                >
+                  Подогнать разрезы
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void onSkipSilence()}
+                  disabled={!transcriptDoneForCurrent || view !== "episode"}
+                  title="Найти паузы > 1.5 сек и вырезать их через split клипов"
+                >
+                  Убрать паузы
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => void onInstallWhisper()}
+                disabled={
+                  whisper?.install.status === "installing-whisper" ||
+                  whisper?.install.status === "downloading-model"
+                }
+                title="Скачать whisper.cpp + multilingual модель medium (~1.5 ГБ, один раз)"
+              >
+                {whisper?.install.status === "installing-whisper"
+                  ? "Ставлю движок…"
+                  : whisper?.install.status === "downloading-model"
+                    ? "Качаю модель…"
+                    : "Установить движок речи"}
+              </Button>
+            )}
           </div>
         </div>
+
+        {whisper &&
+        (whisper.install.status === "installing-whisper" ||
+          whisper.install.status === "downloading-model" ||
+          whisper.install.status === "error" ||
+          whisper.transcribe.status === "extracting-audio" ||
+          whisper.transcribe.status === "transcribing" ||
+          whisper.transcribe.status === "saving" ||
+          whisper.transcribe.status === "error" ||
+          (whisper.transcribe.status === "done" &&
+            whisper.transcribe.episode === selEpisode &&
+            whisper.transcribe.series === selSeries)) ? (
+          <div
+            style={{
+              padding: "8px 16px",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              fontSize: 12,
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            {whisper.install.status === "installing-whisper" ||
+            whisper.install.status === "downloading-model" ? (
+              <>
+                <div>
+                  {whisper.install.status === "installing-whisper"
+                    ? "Собираю whisper.cpp…"
+                    : `Качаю модель ${whisper.install.model} (${Math.round(whisper.install.progress * 100)}%)…`}
+                </div>
+                <div
+                  style={{
+                    height: 4,
+                    background: "rgba(255,255,255,0.08)",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.max(2, whisper.install.progress * 100)}%`,
+                      height: "100%",
+                      background: "rgba(34,197,94,0.7)",
+                      transition: "width 0.3s",
+                    }}
+                  />
+                </div>
+              </>
+            ) : null}
+            {whisper.install.status === "error" ? (
+              <div style={{ color: "#ef4444" }}>
+                Ошибка установки: {whisper.install.error}
+              </div>
+            ) : null}
+            {whisper.transcribe.status === "extracting-audio" ||
+            whisper.transcribe.status === "transcribing" ||
+            whisper.transcribe.status === "saving" ? (
+              <>
+                <div>
+                  {whisper.transcribe.status === "extracting-audio"
+                    ? "Извлекаю аудио из mp4…"
+                    : whisper.transcribe.status === "transcribing"
+                      ? `Распознаю речь (${Math.round(whisper.transcribe.progress * 100)}%)…`
+                      : "Сохраняю файлы…"}
+                </div>
+                <div
+                  style={{
+                    height: 4,
+                    background: "rgba(255,255,255,0.08)",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.max(2, whisper.transcribe.progress * 100)}%`,
+                      height: "100%",
+                      background: "rgba(34,197,94,0.7)",
+                      transition: "width 0.3s",
+                    }}
+                  />
+                </div>
+              </>
+            ) : null}
+            {whisper.transcribe.status === "error" ? (
+              <div style={{ color: "#ef4444" }}>
+                Ошибка распознавания: {whisper.transcribe.error}
+              </div>
+            ) : null}
+            {whisper.transcribe.status === "done" &&
+            whisper.transcribe.episode === selEpisode &&
+            whisper.transcribe.series === selSeries ? (
+              <div>
+                Готово · сохранено в <code>.gg-editor/E{selEpisode}.ru.srt</code>{" "}
+                · включи чекбокс «Субтитры», чтобы увидеть.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {render ? (
           <div

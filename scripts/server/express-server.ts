@@ -26,6 +26,12 @@ import {
   handleCaptionsGet,
 } from "./captions";
 import { handleRenderStart, handleRenderStatus } from "./render";
+import {
+  handleWhisperInstall,
+  handleWhisperStatus,
+  handleWhisperTranscribe,
+} from "./whisper";
+import { handleAutoCut, handleSkipSilence } from "./auto-edit";
 import { indexHtmlDev } from "./index-html";
 import { getProjectFolder } from "./projects";
 import {
@@ -85,6 +91,11 @@ export const startServer = async () => {
   app.use("/api/render", handleRenderStart);
   app.use("/api/captions/generate", handleCaptionsGenerate);
   app.use("/api/captions", handleCaptionsGet);
+  app.use("/api/whisper/install", handleWhisperInstall);
+  app.use("/api/whisper/transcribe", handleWhisperTranscribe);
+  app.use("/api/whisper/status", handleWhisperStatus);
+  app.use("/api/auto-cut", handleAutoCut);
+  app.use("/api/skip-silence", handleSkipSilence);
 
   app.use("/", indexHtmlDev(vite, rootDir));
 
