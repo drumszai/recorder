@@ -146,13 +146,6 @@ const Howto: React.FC = () => (
 
 const App = () => {
   const [mode, setMode] = useState<Mode>({ kind: "home" });
-  const [series, setSeries] = useState<Series[] | null>(null);
-  const [selSeries, setSelSeries] = useState<string | null>(null);
-  const [episodes, setEpisodes] = useState<number[] | null>(null);
-  const [selEp, setSelEp] = useState<number | null>(null);
-  const [assets, setAssets] = useState<AssetsResponse | null>(null);
-  const [assetsLoading, setAssetsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (mode.kind === "editor") {
     return (
@@ -163,6 +156,20 @@ const App = () => {
       />
     );
   }
+
+  return <HomeView setMode={setMode} />;
+};
+
+type HomeViewProps = { setMode: (m: Mode) => void };
+
+const HomeView: React.FC<HomeViewProps> = ({ setMode }) => {
+  const [series, setSeries] = useState<Series[] | null>(null);
+  const [selSeries, setSelSeries] = useState<string | null>(null);
+  const [episodes, setEpisodes] = useState<number[] | null>(null);
+  const [selEp, setSelEp] = useState<number | null>(null);
+  const [assets, setAssets] = useState<AssetsResponse | null>(null);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/series")
@@ -216,7 +223,7 @@ const App = () => {
   const onOpenEditor = useCallback(() => {
     if (!selSeries || selEp === null) return;
     setMode({ kind: "editor", series: selSeries, episode: selEp });
-  }, [selSeries, selEp]);
+  }, [selSeries, selEp, setMode]);
 
   const onOpenStudio = useCallback(() => {
     if (!selSeries || selEp === null) return;
