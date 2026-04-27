@@ -27,14 +27,18 @@ const candidatePaths = (
   seriesFolder: string,
   episode: number,
 ): string[] => {
-  // search order — first match wins
+  // search order — first match wins. Prefer ru, then en, then bare.
   return [
     path.join(seriesFolder, ".gg-editor", `E${episode}.ru.srt`),
+    path.join(seriesFolder, ".gg-editor", `E${episode}.en.srt`),
     path.join(seriesFolder, ".gg-editor", `E${episode}.srt`),
-    // also check inside any "Рендеры"/"Исходники"/"Звук" folder
+    // also check inside any "Рендеры"/"Исходники"/"Звук"/"Субтитры" folder
     ...readdirSync(seriesFolder, { withFileTypes: true })
       .filter((d) => d.isDirectory() && /рендер|исходник|звук|субтитр/i.test(d.name))
-      .map((d) => path.join(seriesFolder, d.name, `E${episode}.ru.srt`)),
+      .flatMap((d) => [
+        path.join(seriesFolder, d.name, `E${episode}.ru.srt`),
+        path.join(seriesFolder, d.name, `E${episode}.en.srt`),
+      ]),
   ];
 };
 

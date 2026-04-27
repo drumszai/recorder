@@ -178,15 +178,27 @@ const applyAutoCut = async (
   const chunks = await fetchChunks(series, episode);
   const wordsByChunk = flattenWordsToChunks(transcript, chunks);
 
+  // chunk durations indexed by filename for clamping
+  const durations = new Map<string, number>();
+  for (const ch of chunks) durations.set(ch.filename, ch.durationSec);
+
   let updated = 0;
   const next: Clip[] = edit.clips.map((c) => {
     const words = wordsByChunk.get(c.source);
     if (!words || words.length === 0) return c;
-    const snappedIn = snapToWordBoundary(c.inSec, words, "start");
-    const snappedOut = snapToWordBoundary(c.outSec, words, "end");
+    const dur = durations.get(c.source) ?? c.outSec;
+    const rawIn = snapToWordBoundary(c.inSec, words, "start");
+    const rawOut = snapToWordBoundary(c.outSec, words, "end");
+    // clamp to [0, chunkDuration]
+    const snappedIn = Math.max(0, Math.min(rawIn, dur - 0.05));
+    const snappedOut = Math.max(snappedIn + 0.05, Math.min(rawOut, dur));
     if (snappedIn === c.inSec && snappedOut === c.outSec) return c;
     updated++;
-    return { ...c, inSec: snappedIn, outSec: snappedOut };
+    return {
+      ...c,
+      inSec: Math.round(snappedIn * 100) / 100,
+      outSec: Math.round(snappedOut * 100) / 100,
+    };
   });
   saveEditState(folder, episode, { ...edit, clips: next });
   return { updated, total: edit.clips.length };

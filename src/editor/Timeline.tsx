@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   transitionType,
   type Clip,
+  type ClipEffect,
   type TransitionType,
 } from "../../remotion/Episode";
 import type { Chunk } from "./types";
@@ -355,6 +356,20 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
     [clips, onClipsChange],
   );
 
+  const onToggleEffect = useCallback(
+    (clipId: string) => {
+      const next = clips.map((c) => {
+        if (c.id !== clipId) return c;
+        const cur: ClipEffect = c.effect ?? "none";
+        const nextEffect: ClipEffect =
+          cur === "motion-blur" ? "none" : "motion-blur";
+        return { ...c, effect: nextEffect };
+      });
+      onClipsChange(next);
+    },
+    [clips, onClipsChange],
+  );
+
   if (clips.length === 0) {
     return (
       <div style={wrap}>
@@ -473,6 +488,36 @@ export const Timeline: React.FC<Props> = ({ clips, chunks, onClipsChange }) => {
                   />
                 );
               })()}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleEffect(clip.id);
+                }}
+                title={
+                  clip.effect === "motion-blur"
+                    ? "Размытие движения вкл — нажми чтобы выключить"
+                    : "Включить размытие движения (motion blur)"
+                }
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: HANDLE_W + 22,
+                  width: 16,
+                  height: 16,
+                  border: "none",
+                  background:
+                    clip.effect === "motion-blur"
+                      ? "rgba(99,102,241,0.7)"
+                      : "rgba(0,0,0,0.4)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  borderRadius: 8,
+                  fontSize: 9,
+                  lineHeight: "12px",
+                }}
+              >
+                ✨
+              </button>
               {clips.length > 1 ? (
                 <button
                   onClick={(e) => {

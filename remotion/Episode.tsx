@@ -1,3 +1,4 @@
+import { CameraMotionBlur } from "@remotion/motion-blur";
 import { linearTiming, TransitionSeries } from "@remotion/transitions";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { fade } from "@remotion/transitions/fade";
@@ -33,6 +34,14 @@ export const transitionType = z
 
 export type TransitionType = z.infer<typeof transitionType>;
 
+export const clipEffect = z
+  .enum(["none", "motion-blur"])
+  .describe(
+    "Эффект, накладываемый на клип целиком. motion-blur — размытие движения через @remotion/motion-blur (тяжелее по рендеру, ставь только если нужен).",
+  );
+
+export type ClipEffect = z.infer<typeof clipEffect>;
+
 export const clipSchema = z
   .object({
     id: z.string().describe("Уникальный ID клипа. Не редактируй вручную."),
@@ -54,6 +63,7 @@ export const clipSchema = z
         "На какой секунде исходного mp4 клип заканчивается. Чтобы обрезать конец — уменьши это число. Для split одного чанка на два клипа используй один и тот же source с разными inSec/outSec.",
       ),
     transitionAfter: transitionType,
+    effect: clipEffect.optional(),
   })
   .describe(
     "Один клип на тайм-лайне. Чтобы разрезать чанк на куски — добавь несколько клипов с одним и тем же source.",
@@ -305,29 +315,38 @@ export const Episode: React.FC<EpisodeProps> = ({
           );
           const startFromFrames = Math.max(0, Math.round(clip.inSec * fps));
           const path = findChunkPath(chunks, clip.source);
+          const videoEl = path ? (
+            <OffthreadVideo src={fileUrl(path)} startFrom={startFromFrames} />
+          ) : (
+            <AbsoluteFill
+              style={{
+                background: "#400",
+                color: "#fff",
+                justifyContent: "center",
+                alignItems: "center",
+                fontSize: 24,
+                padding: 40,
+                textAlign: "center",
+              }}
+            >
+              Не найден файл «{clip.source}»
+            </AbsoluteFill>
+          );
+          const wrapped =
+            clip.effect === "motion-blur" ? (
+              <CameraMotionBlur shutterAngle={180} samples={4}>
+                {videoEl}
+              </CameraMotionBlur>
+            ) : (
+              videoEl
+            );
           const seq = (
             <TransitionSeries.Sequence
               key={`seq-${clip.id}`}
               durationInFrames={visible}
               name={clip.source}
             >
-              {path ? (
-                <OffthreadVideo src={fileUrl(path)} startFrom={startFromFrames} />
-              ) : (
-                <AbsoluteFill
-                  style={{
-                    background: "#400",
-                    color: "#fff",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    fontSize: 24,
-                    padding: 40,
-                    textAlign: "center",
-                  }}
-                >
-                  Не найден файл «{clip.source}»
-                </AbsoluteFill>
-              )}
+              {wrapped}
             </TransitionSeries.Sequence>
           );
 

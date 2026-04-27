@@ -341,8 +341,15 @@ const runTranscribe = async (
     const srtBody = buildSrt(
       result.transcription as AnyTranscriptItem[],
     );
-    const srtPath = path.join(editorDir, `E${episode}.ru.srt`);
-    writeFileSync(srtPath, srtBody, "utf-8");
+    // save as .<detected-lang>.srt — captions endpoint already falls back across
+    // .ru.srt and .srt; we keep .ru.srt as the canonical target if the lang is ru,
+    // otherwise (.en.srt etc) we still drop a generic .srt copy so the overlay finds it.
+    const detectedLang = result.params.language || (language === "auto" ? "en" : language);
+    const langSrtPath = path.join(editorDir, `E${episode}.${detectedLang}.srt`);
+    writeFileSync(langSrtPath, srtBody, "utf-8");
+    const fallbackSrtPath = path.join(editorDir, `E${episode}.srt`);
+    writeFileSync(fallbackSrtPath, srtBody, "utf-8");
+    const srtPath = langSrtPath;
 
     pushLog(state.transcribe, `saved transcript + srt (${captions.captions.length} captions)`);
     try {
